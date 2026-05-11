@@ -103,16 +103,16 @@ mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
 # Compile Machine.C once
 # =========================
 if (( FORCE_RECOMPILE )); then
-  COMPILE_MACRO="${SCAN_DIR}/compile_Machine.C"
-
-  cat > "${COMPILE_MACRO}" <<EOF
-{
-  gROOT->LoadMacro("${MACHINE_MACRO}++");
-}
-EOF
-
   echo "[info] Forcing ACLiC rebuild of Machine.C..."
-  root -l -b -q "${COMPILE_MACRO}" > "${SCAN_DIR}/compile.log" 2>&1
+
+  if ! root -l -b -q -e "gROOT->LoadMacro(\"${MACHINE_MACRO}++\");" \
+      > "${SCAN_DIR}/compile.log" 2>&1; then
+    echo "[error] ACLiC compilation failed."
+    echo "[error] Last lines of ${SCAN_DIR}/compile.log:"
+    tail -n 80 "${SCAN_DIR}/compile.log"
+    exit 1
+  fi
+
   echo "[info] Compilation finished. Log: ${SCAN_DIR}/compile.log"
 fi
 
