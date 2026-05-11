@@ -53,7 +53,7 @@ MAX_N_BINS_SCAN=12
 
 # Limit on the number of different reco binnings for one configuration
 # (RECO_PT_MIN, RECO_PT_MAX, RECO_N_BINS). 0 = no limit.
-MAX_RECO_PATTERNS_PER_CONFIG=0
+MAX_RECO_PATTERNS_PER_CONFIG=1
 
 # Edges above BREAK_PT must be integer values.
 # This allows finer bins at low pT, but only integer edges at higher pT.
@@ -79,7 +79,7 @@ FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
 SAVED_ITER=4
-MIN_PT_D0=5
+MIN_PT_D0=1
 MAX_PT_D0=10
 USE_PRIOR_SHAPE_WEIGHTING=0
 SYSTEMATIC_SPLOT=0
