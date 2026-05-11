@@ -506,9 +506,9 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
     double D0_pt_range[]         = {0, 10};
 
     // Načtení 2D efektivity
-    LoadEfficiency2D();
-    LoadEfficiency1D();
-    LoadEfficiency1DPaper();
+    //LoadEfficiency2D();
+    //LoadEfficiency1D();
+    //LoadEfficiency1DPaper();
     LoadPaperD0Systematics();
 
     // Vytvoření readeru pro strom
@@ -614,7 +614,7 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
             // ---------------------------
             // Deklarace RooArgSet proměnných
             // ---------------------------
-            RooArgSet vars(runId,
+            /*RooArgSet vars(runId,
                            rho,
                            eventId,
                            central,
@@ -643,7 +643,40 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
                            w_c,
                            w_ef,
                            w_cErr,
-                           w_dc);
+                           w_dc);*/
+                           
+            RooArgSet vars;
+
+		vars.add(runId);
+		vars.add(rho);
+		vars.add(eventId);
+		vars.add(central);
+		vars.add(centralityAlt);
+		vars.add(gRefMult);
+		vars.add(mass);
+		vars.add(vD0_pT);
+		vars.add(D0_rap);
+		vars.add(D0_eta);
+		vars.add(pT);
+		vars.add(jetEta);
+		vars.add(jetPhi);
+		vars.add(jetRapidity);
+		vars.add(jetArea);
+		vars.add(jetD0DeltaR);
+		vars.add(jetNeutralPtFrac);
+		vars.add(nJetConst);
+		vars.add(nJetsInEvent);
+		vars.add(lam_1_0half);
+		vars.add(lam_1_1);
+		vars.add(lam_1_1half);
+		vars.add(lam_1_2);
+		vars.add(lam_1_3);
+		vars.add(lam_2_0);
+		vars.add(z);
+		vars.add(w_c);
+		vars.add(w_ef);
+		vars.add(w_cErr);
+		vars.add(w_dc);               
 
             // ---------------------------
             // Vytvoření RooDataSetu (zatím bez vážení)
@@ -699,7 +732,7 @@ TString branchPrefix;
 if (methodUsed == "ICS") branchPrefix = "ICS_";
 else branchPrefix = "";
 
-LoadFiles() ;
+//LoadFiles() ;
 LoadEfficiency1DCut();
 // --- persistentní názvy větví s prefixem ---
 const TString brZ               = branchPrefix + "z";
