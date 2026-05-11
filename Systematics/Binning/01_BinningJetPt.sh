@@ -30,6 +30,8 @@ command -v python3 >/dev/null 2>&1 || { echo "[error] python3 is not in PATH"; e
 MACHINE_MACRO="${PROJECT_DIR}/Unfolding/Machine.C"
 INPUT_FILE="${PROJECT_DIR}/Data/Output_real_final_01022026.root"
 
+FORCE_RECOMPILE=1
+
 [[ -f "${INPUT_FILE}" ]] || { echo "[error] Missing input file: ${INPUT_FILE}"; exit 1; }
 
 # -------------------------
@@ -53,7 +55,7 @@ MAX_N_BINS_SCAN=12
 
 # Limit on the number of different reco binnings for one configuration
 # (RECO_PT_MIN, RECO_PT_MAX, RECO_N_BINS). 0 = no limit.
-MAX_RECO_PATTERNS_PER_CONFIG=1
+MAX_RECO_PATTERNS_PER_CONFIG=0
 
 # Edges above BREAK_PT must be integer values.
 # This allows finer bins at low pT, but only integer edges at higher pT.
@@ -96,6 +98,23 @@ RUN_DIR="${SCAN_DIR}/runs"
 SUMMARY="${SCAN_DIR}/summary.tsv"
 
 mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
+
+# =========================
+# Compile Machine.C once
+# =========================
+if (( FORCE_RECOMPILE )); then
+  COMPILE_MACRO="${SCAN_DIR}/compile_Machine.C"
+
+  cat > "${COMPILE_MACRO}" <<EOF
+{
+  gROOT->LoadMacro("${MACHINE_MACRO}++");
+}
+EOF
+
+  echo "[info] Forcing ACLiC rebuild of Machine.C..."
+  root -l -b -q "${COMPILE_MACRO}" > "${SCAN_DIR}/compile.log" 2>&1
+  echo "[info] Compilation finished. Log: ${SCAN_DIR}/compile.log"
+fi
 
 # =========================
 # Helper functions
