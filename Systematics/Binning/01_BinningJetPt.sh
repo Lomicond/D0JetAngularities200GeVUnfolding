@@ -30,8 +30,6 @@ command -v python3 >/dev/null 2>&1 || { echo "[error] python3 is not in PATH"; e
 MACHINE_MACRO="${PROJECT_DIR}/Unfolding/Machine.C"
 INPUT_FILE="${PROJECT_DIR}/Data/Output_real_final_01022026.root"
 
-FORCE_RECOMPILE=1
-
 [[ -f "${INPUT_FILE}" ]] || { echo "[error] Missing input file: ${INPUT_FILE}"; exit 1; }
 
 # -------------------------
@@ -98,23 +96,6 @@ RUN_DIR="${SCAN_DIR}/runs"
 SUMMARY="${SCAN_DIR}/summary.tsv"
 
 mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
-
-# =========================
-# Compile Machine.C once
-# =========================
-if (( FORCE_RECOMPILE )); then
-  echo "[info] Forcing ACLiC rebuild of Machine.C..."
-
-  if ! root -l -b -q -e "gROOT->LoadMacro(\"${MACHINE_MACRO}++\");" \
-      > "${SCAN_DIR}/compile.log" 2>&1; then
-    echo "[error] ACLiC compilation failed."
-    echo "[error] Last lines of ${SCAN_DIR}/compile.log:"
-    tail -n 80 "${SCAN_DIR}/compile.log"
-    exit 1
-  fi
-
-  echo "[info] Compilation finished. Log: ${SCAN_DIR}/compile.log"
-fi
 
 # =========================
 # Helper functions
@@ -185,6 +166,9 @@ done
 shopt -u nullglob
 
 runs_started=0
+# Use forced ACLiC rebuild only for the first real Machine() call.
+# After that, use the already compiled library.
+ACLIC_SUFFIX="++"
 
 # =========================
 # Main loop
@@ -305,12 +289,15 @@ EOF_OVR
             # ScanDir    = SCAN_DIR so stability.tsv and Output/OutputSpectra*.root go there
             # -------------------------
             if ! root -l -b -q \
-              "${MACHINE_MACRO}+( ${FONLL_JET}, ${CUT_NEG}, ${MIN_JET_PT_RECO_CUT}, ${SAVED_ITER}, \"${INPUT_FILE}\", \"${RUN_ID}\", ${MIN_PT_D0}, ${MAX_PT_D0}, \"${OVR_FILE}\", \"${SCAN_DIR}\", ${USE_PRIOR_SHAPE_WEIGHTING}, ${SYSTEMATIC_SPLOT} )" \
+              "${MACHINE_MACRO}${ACLIC_SUFFIX}( ${FONLL_JET}, ${CUT_NEG}, ${MIN_JET_PT_RECO_CUT}, ${SAVED_ITER}, \"${INPUT_FILE}\", \"${RUN_ID}\", ${MIN_PT_D0}, ${MAX_PT_D0}, \"${OVR_FILE}\", \"${SCAN_DIR}\", ${USE_PRIOR_SHAPE_WEIGHTING}, ${SYSTEMATIC_SPLOT} )" \
               > "${ROOT_LOG}" 2>&1; then
               echo "[error] ROOT failed for ${RUN_ID}. Last 60 lines of the log:"
               tail -n 60 "${ROOT_LOG}" || true
               exit 1
             fi
+            
+            # Only the first run should force recompilation.
+	    ACLIC_SUFFIX="+"
 
           done
         done
