@@ -55,7 +55,7 @@ L10P5_TRUE_N_BINS=7
 # The shift is applied to internal reco and true edges only.
 # The first and last edges remain fixed.
 # Invalid shifted configurations are skipped.
-L10P5_EDGE_SHIFTS=(0 -0.1 0.1)
+L10P5_EDGE_SHIFTS=(0 -0.05 0.05)
 
 # -------------------------
 # Machine() parameters
