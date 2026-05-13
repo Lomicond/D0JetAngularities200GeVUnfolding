@@ -51,7 +51,7 @@ L12_TRUE_N_BINS=8
 
 # Edge nudging.
 # Use the same controlled edge shift as for the previous angularities: 0.005.
-# The shift is applied coherently to internal reco and true edges.
+# The shift is applied coherently to internal reco edges.
 # The first and last edges remain fixed.
 L12_EDGE_SHIFTS=(0 -0.005 0.005)
 
@@ -188,7 +188,7 @@ for L12_RECO_MAX in "${L12_RECO_MAX_LIST[@]}"; do
 
         for L12_TRUE_MAX in "${L12_TRUE_MAX_LIST[@]}"; do
           L12_TRUE_EDGES_BASE=$(format_edges_from_max "${L12_TRUE_MAX}")
-          L12_TRUE_EDGES=$(shift_edges "${L12_TRUE_EDGES_BASE}" "${L12_EDGE_SHIFT}")
+          L12_TRUE_EDGES="${L12_TRUE_EDGES_BASE}"
           L12_TRUE_N_BINS=${L12_TRUE_N_BINS}
 
           if (( L12_RECO_N_BINS < L12_TRUE_N_BINS )); then

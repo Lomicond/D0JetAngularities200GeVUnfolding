@@ -51,7 +51,7 @@ L13_TRUE_N_BINS=8
 
 # Edge nudging.
 # Use the minimum response-matrix step used for this observable: 0.0025.
-# The shift is applied coherently to internal reco and true edges.
+# The shift is applied coherently to internal reco edges.
 # The first and last edges remain fixed.
 L13_EDGE_SHIFTS=(0 -0.0025 0.0025)
 
@@ -188,7 +188,7 @@ for L13_RECO_MAX in "${L13_RECO_MAX_LIST[@]}"; do
 
         for L13_TRUE_MAX in "${L13_TRUE_MAX_LIST[@]}"; do
           L13_TRUE_EDGES_BASE=$(format_edges_from_max "${L13_TRUE_MAX}")
-          L13_TRUE_EDGES=$(shift_edges "${L13_TRUE_EDGES_BASE}" "${L13_EDGE_SHIFT}")
+          L13_TRUE_EDGES="${L13_TRUE_EDGES_BASE}"
           L13_TRUE_N_BINS=${L13_TRUE_N_BINS}
 
           if (( L13_RECO_N_BINS < L13_TRUE_N_BINS )); then

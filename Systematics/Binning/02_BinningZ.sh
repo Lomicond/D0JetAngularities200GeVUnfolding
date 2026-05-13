@@ -57,14 +57,13 @@ Z_LAST_BIN_LEFT=0.9
 #   nominal     : no edge shift
 #   reco_minus  : move internal reco-z edges by -Z_EDGE_NUDGE_STEP
 #   reco_plus   : move internal reco-z edges by +Z_EDGE_NUDGE_STEP
-#   true_minus  : move internal true-z edges by -Z_EDGE_NUDGE_STEP
-#   true_plus   : move internal true-z edges by +Z_EDGE_NUDGE_STEP
 #
+# Only reco-level edges are nudged. True-level edges are not shifted.
 # Endpoints are kept fixed. The 0.9 edge is also kept fixed, so the last
 # 0.9 -> 1.01 bin stays unchanged.
-Z_EDGE_NUDGE_STEP=0.05
-Z_EDGE_NUDGE_MIN_WIDTH=0.05
-Z_NUDGE_MODES=(nominal reco_minus reco_plus true_minus true_plus)
+Z_EDGE_NUDGE_STEP=0.01
+Z_EDGE_NUDGE_MIN_WIDTH=0.01
+Z_NUDGE_MODES=(nominal reco_minus reco_plus)
 
 # -------------------------
 # Machine() parameters
@@ -322,20 +321,14 @@ def shifted_edges(edges, shift):
 
 
 def apply_mode(reco_edges, true_edges, mode):
+    # Nudge only the reco-level z edges.
+    # True-level z edges are never shifted here; they are changed only by Z_TRUE_START_LIST.
     if mode == "nominal":
         return reco_edges, true_edges
     if mode == "reco_minus":
         return shifted_edges(reco_edges, -nudge_step), true_edges
     if mode == "reco_plus":
         return shifted_edges(reco_edges, +nudge_step), true_edges
-    if mode == "true_minus":
-        return reco_edges, shifted_edges(true_edges, -nudge_step)
-    if mode == "true_plus":
-        return reco_edges, shifted_edges(true_edges, +nudge_step)
-    if mode == "both_minus":
-        return shifted_edges(reco_edges, -nudge_step), shifted_edges(true_edges, -nudge_step)
-    if mode == "both_plus":
-        return shifted_edges(reco_edges, +nudge_step), shifted_edges(true_edges, +nudge_step)
 
     print(f"[warning] Unknown Z_NUDGE_MODE='{mode}', skipping", file=sys.stderr)
     return None, None

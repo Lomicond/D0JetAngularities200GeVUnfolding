@@ -194,7 +194,7 @@ for L11_RECO_MAX in "${L11_RECO_MAX_LIST[@]}"; do
 
         for L11_TRUE_MAX in "${L11_TRUE_MAX_LIST[@]}"; do
           L11_TRUE_EDGES_BASE=$(format_edges_from_max "${L11_TRUE_MAX}")
-          L11_TRUE_EDGES=$(shift_edges "${L11_TRUE_EDGES_BASE}" "${L11_EDGE_SHIFT}")
+          L11_TRUE_EDGES="${L11_TRUE_EDGES_BASE}"
           L11_TRUE_N_BINS=7
 
           # The true level must not have more bins than the reco level.

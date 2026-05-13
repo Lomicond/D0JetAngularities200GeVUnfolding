@@ -7726,7 +7726,7 @@ void Machine(bool _fonllJet = true, bool _CutOfNegative = true, double _minJetPt
              double _minPtD0Cut = 1, double _maxPtD0Cut = 10, //min not applied
              const char *OverrideMacro = "",
              const char *ScanDir = "DefaultScanDir",
-             int usePriorShapeWeighting = 0, //0 none, 1X JetpT, 2X Z, 3X l11, 4X l1p5, 5X l2, 6X l3, 7X l10p5, 8X pTD // X = 0 +20%; X = 1 -20%
+             int usePriorShapeWeighting = 0, //0 none, 1X JetpT, 2X second variable // X = 0 +20%; X = 1 -20%
              int systematicSPlot = 0)
 {
     ApplyOverrideMacro(OverrideMacro);

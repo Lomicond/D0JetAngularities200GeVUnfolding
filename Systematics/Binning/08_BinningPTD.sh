@@ -1,18 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ============================================================
+# Binning systematic scan: pTD
+#
+# Run from the main project directory, i.e. the directory containing:
+#   config.h, config_hist.h, Unfolding/Machine.C, Data/...
+#
+# Recommended run command:
+#   bash Systematics/Binning/08_BinningPTD.sh
+# ============================================================
+
+# -------------------------
+# Working-directory checks
+# -------------------------
+PROJECT_DIR="$(pwd -P)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+
+[[ -f "${PROJECT_DIR}/config.h" ]]       || { echo "[error] Run this script from the main project directory: missing ./config.h"; exit 1; }
+[[ -f "${PROJECT_DIR}/config_hist.h" ]]  || { echo "[error] Run this script from the main project directory: missing ./config_hist.h"; exit 1; }
+[[ -f "${PROJECT_DIR}/Unfolding/Machine.C" ]] || { echo "[error] Missing ./Unfolding/Machine.C"; exit 1; }
+
+command -v root    >/dev/null 2>&1 || { echo "[error] root is not in PATH"; exit 1; }
+command -v python3 >/dev/null 2>&1 || { echo "[error] python3 is not in PATH"; exit 1; }
+
 # =========================
-# Uživatelské nastavení
+# User settings
 # =========================
-MACHINE_MACRO="./SuperIterace/Machine.C"
-INPUT_FILE="./Data/Output_real_final_01022026.root"
+MACHINE_MACRO="${PROJECT_DIR}/Unfolding/Machine.C"
+INPUT_FILE="${PROJECT_DIR}/Data/Output_real_final_01022026.root"
+
+[[ -f "${INPUT_FILE}" ]] || { echo "[error] Missing input file: ${INPUT_FILE}"; exit 1; }
 
 # -------------------------
 # pTD scan only
 # -------------------------
-# Pozn.: index 5 = p_T^D / pTD.
-# Override níže mění POUZE angRecoBinsVec[*][5] a angMcBinsVecCustom[*][5].
-# Všechny ostatní binningy zůstávají tak, jak jsou v config.h.
+# Index 5 = p_T^D / pTD.
+# The override below changes only angRecoBinsVec[*][5]
+# and angMcBinsVecCustom[*][5].
+# All other binnings remain exactly as defined in config.h/config_hist.h.
 PTD_INDEX=5
 
 PTD_TRUE_START_LIST=(0 0.3 0.5)
@@ -20,41 +46,47 @@ PTD_RECO_START_LIST=(0 0.3 0.5)
 PTD_RECO_ALLOWED_WIDTHS=(0.1 0.15 0.2 0.3)
 PTD_RECO_MIN_WIDTH=0.1
 PTD_RIGHT_EDGE=1.01
-PTD_LAST_BIN_LEFT=0.9   # poslední bin je vždy 0.9 -> 1.01, efektivně jako 0.1
+PTD_LAST_BIN_LEFT=0.9   # The reco last bin is kept fixed as 0.9 -> 1.01.
 
-# "Ševelení" hran.
-# Posun se aplikuje koherentně na vnitřní hrany reco i true binningu.
-# Krajní hrany, tj. první hrana daného rozsahu a PTD_RIGHT_EDGE, se neposouvají.
-# Pokud posun vytvoří neplatné hrany, daná varianta se přeskočí.
-PTD_EDGE_SHIFTS=(0 -0.1 0.1)
+# Edge nudging.
+# According to the agreed setting for pTD, use a coherent shift of 0.1.
+# The shift is applied only to middle internal reco edges.
+# The first edge, the last edge, and the edge before the last edge are kept fixed.
+# This keeps the last bin stable and avoids pathological tiny last bins.
+PTD_EDGE_SHIFTS=(0 -0.01 0.01)
 
 # -------------------------
-# Parametry Machine()
+# Machine() parameters
+# Signature in the current Machine.C:
+# Machine(fonllJet, CutOfNegative, minJetPtRecoCut, savedIter,
+#         InputFile, OutputFile, minPtD0Cut, maxPtD0Cut,
+#         OverrideMacro, ScanDir, usePriorShapeWeighting, systematicSPlot)
 # -------------------------
 FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
 SAVED_ITER=4
-MIN_PT_D0=5
+MIN_PT_D0=1
 MAX_PT_D0=10
+USE_PRIOR_SHAPE_WEIGHTING=0
+SYSTEMATIC_SPLOT=0
 
-# bezpečnostní pojistky
-# 0 = bez limitu
+# Safety limit for the whole scan. 0 = no limit.
 MAX_TOTAL_RUNS=0
 
 # -------------------------
-# Kam ukládat
+# Output location
 # -------------------------
-OUT_BASE="scan_pTD"
-OVR_DIR="${OUT_BASE}/overrides"
-RUN_DIR="${OUT_BASE}/runs"
-SUMMARY="${OUT_BASE}/summary.tsv"
-STABILITY="${OUT_BASE}/stability.tsv"
+SCAN_DIR="${SCRIPT_DIR}/scanPTD"
+OVR_DIR="${SCAN_DIR}/overrides"
+RUN_DIR="${SCAN_DIR}/runs"
+SUMMARY="${SCAN_DIR}/summary.tsv"
+STABILITY="${SCAN_DIR}/stability.tsv"
 
-mkdir -p "${OVR_DIR}" "${RUN_DIR}"
+mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
 
 # =========================
-# Pomocné funkce
+# Helper functions
 # =========================
 run_in_file() {
   local run_id="$1"
@@ -110,20 +142,23 @@ shift = float(sys.argv[2])
 if len(edges) < 2:
     raise SystemExit("Need at least two edges")
 
-# Posouváme jen vnitřní hrany. Levý okraj aktuálního rozsahu a 1.01 necháváme fixní.
-if abs(shift) > 0:
-    for i in range(1, len(edges) - 1):
+# Shift only middle internal edges.
+# Keep fixed:
+#   i = 0              first edge of the selected range
+#   i = len(edges)-2   edge before the last edge, preserving the last bin
+#   i = len(edges)-1   right edge
+if abs(shift) > 0 and len(edges) > 3:
+    for i in range(1, len(edges) - 2):
         edges[i] = round(edges[i] + shift, 10)
 
-# Bezpečnostní kontrola: hrany musí zůstat striktně rostoucí.
+# The edges must remain strictly increasing.
 for a, b in zip(edges, edges[1:]):
     if not (b > a):
         raise SystemExit(f"Invalid shifted edges: {edges}")
 
-if edges[0] < 0:
+if edges[0] < -1e-9:
     raise SystemExit(f"Invalid shifted edges: {edges}")
 
-# pTD má pravý okraj 1.01; po posunu vnitřních hran nesmí nic přeskočit za něj.
 if edges[-1] > 1.01 + 1e-9:
     raise SystemExit(f"Invalid shifted edges: {edges}")
 
@@ -135,33 +170,78 @@ print(", ".join(fmt(x) for x in edges))
 PY
 }
 
-# =========================
-# Kontroly prostředí
-# =========================
-command -v root >/dev/null 2>&1 || { echo "root není v PATH"; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo "python3 není v PATH"; exit 1; }
+write_ptd_override() {
+  local file="$1"
+  local reco_edges="$2"
+  local true_edges="$3"
+
+  cat > "${file}" <<EOF_OVR
+{
+  cout << "[override] pTD reco edges: ${reco_edges}" << endl;
+  cout << "[override] pTD true edges: ${true_edges}" << endl;
+
+  for (int ic = 0; ic < nCentralityBins; ++ic) {
+    angRecoBinsVec[ic][${PTD_INDEX}].clear();
+  }
+  double reco_edges[] = { ${reco_edges} };
+  int nReco = (int)(sizeof(reco_edges)/sizeof(double));
+  for (int ic = 0; ic < nCentralityBins; ++ic) {
+    for (int i = 0; i < nReco; ++i) {
+      angRecoBinsVec[ic][${PTD_INDEX}].push_back(reco_edges[i]);
+    }
+  }
+
+  for (int ic = 0; ic < nCentralityBins; ++ic) {
+    angMcBinsVecCustom[ic][${PTD_INDEX}].clear();
+  }
+  double true_edges[] = { ${true_edges} };
+  int nTrue = (int)(sizeof(true_edges)/sizeof(double));
+  for (int ic = 0; ic < nCentralityBins; ++ic) {
+    for (int i = 0; i < nTrue; ++i) {
+      angMcBinsVecCustom[ic][${PTD_INDEX}].push_back(true_edges[i]);
+    }
+  }
+}
+EOF_OVR
+}
 
 # =========================
-# Hlavička summary
+# Summary header
 # =========================
 if [[ ! -f "${SUMMARY}" ]]; then
-  printf "run_id\tpTD_edge_shift\tpTD_true_start\tpTD_true_n_bins\tpTD_reco_start\tpTD_reco_n_bins\tpTD_reco_edges\tpTD_true_edges\n" > "${SUMMARY}"
+  printf "run_id\tpTD_edge_shift\tpTD_true_start\tpTD_true_n_bins\tpTD_reco_start\tpTD_reco_n_bins\tpTD_reco_edges\tpTD_true_edges\toverride_file\troot_log\n" > "${SUMMARY}"
 fi
 
 # =========================
-# Resume počítadla
+# Determine the last run ID
 # =========================
 run_counter=0
+shopt -s nullglob
+for d in "${RUN_DIR}"/r*; do
+  [[ -d "${d}" ]] || continue
+  bn=$(basename "${d}")
+  if [[ "${bn}" =~ ^r([0-9]+)$ ]]; then
+    num=$((10#${BASH_REMATCH[1]}))
+    (( num > run_counter )) && run_counter=${num}
+  fi
+done
+shopt -u nullglob
+
 runs_started=0
 
+# Use forced ACLiC rebuild only for the first real Machine() call.
+# After that, use the already compiled library.
+ACLIC_SUFFIX="++"
+
 # =========================
-# Hlavní smyčka
+# Main loop
 # =========================
 for PTD_TRUE_START in "${PTD_TRUE_START_LIST[@]}"; do
   PTD_TRUE_EDGES_BASE=$(format_true_edges_from_start "${PTD_TRUE_START}")
 
   for PTD_RECO_START in "${PTD_RECO_START_LIST[@]}"; do
-    if ! python3 - "$PTD_RECO_START" "$PTD_TRUE_START" <<'PY' >/dev/null
+    # Reco must be at least as wide as truth: reco_start <= true_start.
+    if ! python3 - "${PTD_RECO_START}" "${PTD_TRUE_START}" <<'PY' >/dev/null
 import sys
 reco = float(sys.argv[1])
 tru  = float(sys.argv[2])
@@ -180,11 +260,7 @@ PY
           continue
         fi
 
-        if ! PTD_TRUE_EDGES=$(shift_edges "${PTD_TRUE_EDGES_BASE}" "${PTD_EDGE_SHIFT}"); then
-          echo "[skip] pTD shift=${PTD_EDGE_SHIFT}, true start=${PTD_TRUE_START} -> invalid true edges"
-          continue
-        fi
-
+	PTD_TRUE_EDGES="${PTD_TRUE_EDGES_BASE}"
         PTD_RECO_N_BINS=$(count_edges_bins "${PTD_RECO_EDGES}")
         PTD_TRUE_N_BINS=$(count_edges_bins "${PTD_TRUE_EDGES}")
 
@@ -197,12 +273,12 @@ PY
         printf -v RUN_ID "r%06d" "${run_counter}"
 
         if run_is_complete "${RUN_ID}"; then
-          echo "[resume] ${RUN_ID} už je hotový -> skip"
+          echo "[resume] ${RUN_ID} is already complete -> skip"
           continue
         fi
 
         if (( MAX_TOTAL_RUNS > 0 && runs_started >= MAX_TOTAL_RUNS )); then
-          echo "Dosažen MAX_TOTAL_RUNS=${MAX_TOTAL_RUNS}, končím."
+          echo "Reached MAX_TOTAL_RUNS=${MAX_TOTAL_RUNS}, stopping."
           exit 0
         fi
 
@@ -213,39 +289,35 @@ PY
 
         OVR_FILE="${OVR_DIR}/override_${RUN_ID}.C"
         OUT_DIR="${RUN_DIR}/${RUN_ID}"
+        ROOT_LOG="${OUT_DIR}/root.log"
         rm -rf "${OUT_DIR}"
         mkdir -p "${OUT_DIR}"
 
-        cat > "${OVR_FILE}" <<EOF2
-{
-  // ---------- pTD scan only, index ${PTD_INDEX} ----------
-  // All other binning variables stay exactly as defined in config.h.
-  angRecoBinsVec[0][${PTD_INDEX}] = std::vector<double>{ ${PTD_RECO_EDGES} };
-  angRecoBinsVec[1][${PTD_INDEX}] = std::vector<double>{ ${PTD_RECO_EDGES} };
-  angRecoBinsVec[2][${PTD_INDEX}] = std::vector<double>{ ${PTD_RECO_EDGES} };
+        write_ptd_override "${OVR_FILE}" "${PTD_RECO_EDGES}" "${PTD_TRUE_EDGES}"
 
-  angMcBinsVecCustom[0][${PTD_INDEX}] = std::vector<double>{ ${PTD_TRUE_EDGES} };
-  angMcBinsVecCustom[1][${PTD_INDEX}] = std::vector<double>{ ${PTD_TRUE_EDGES} };
-  angMcBinsVecCustom[2][${PTD_INDEX}] = std::vector<double>{ ${PTD_TRUE_EDGES} };
-}
-EOF2
-
-        echo "[${RUN_ID}] pTD shift=${PTD_EDGE_SHIFT}, true start=${PTD_TRUE_START}, reco start=${PTD_RECO_START}, Nreco=${PTD_RECO_N_BINS}, Ntrue=${PTD_TRUE_N_BINS}"
-
-        root -l -b -q \
-          "${MACHINE_MACRO}+( ${FONLL_JET}, ${CUT_NEG}, ${MIN_JET_PT_RECO_CUT}, ${SAVED_ITER}, \"${INPUT_FILE}\", \"${OUT_DIR}\", ${MIN_PT_D0}, ${MAX_PT_D0}, \"${OVR_FILE}\" )" \
-          2>&1 | awk '
-            seen { print }
-            /Loading RM from cache histograms\.\.\./ { seen=1; print }
-          ' > "${OUT_DIR}/root.log"
-
-        printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+        printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
           "${RUN_ID}" \
           "${PTD_EDGE_SHIFT}" \
           "${PTD_TRUE_START}" "${PTD_TRUE_N_BINS}" \
           "${PTD_RECO_START}" "${PTD_RECO_N_BINS}" \
           "${PTD_RECO_EDGES}" "${PTD_TRUE_EDGES}" \
+          "${OVR_FILE}" "${ROOT_LOG}" \
           >> "${SUMMARY}"
+
+        echo "[${RUN_ID}] pTD shift=${PTD_EDGE_SHIFT}, true start=${PTD_TRUE_START}, reco start=${PTD_RECO_START}, Nreco=${PTD_RECO_N_BINS}, Ntrue=${PTD_TRUE_N_BINS}"
+
+        # OutputFile = RUN_ID because Machine.C uses runId = BaseName(OutputFile).
+        # ScanDir    = SCAN_DIR so stability.tsv and Output/OutputSpectra*.root go there.
+        if ! root -l -b -q \
+          "${MACHINE_MACRO}${ACLIC_SUFFIX}( ${FONLL_JET}, ${CUT_NEG}, ${MIN_JET_PT_RECO_CUT}, ${SAVED_ITER}, \"${INPUT_FILE}\", \"${RUN_ID}\", ${MIN_PT_D0}, ${MAX_PT_D0}, \"${OVR_FILE}\", \"${SCAN_DIR}\", ${USE_PRIOR_SHAPE_WEIGHTING}, ${SYSTEMATIC_SPLOT} )" \
+          > "${ROOT_LOG}" 2>&1; then
+          echo "[error] ROOT failed for ${RUN_ID}. Last 60 lines of the log:"
+          tail -n 60 "${ROOT_LOG}" || true
+          exit 1
+        fi
+
+        # Only the first run should force recompilation.
+        ACLIC_SUFFIX="+"
 
       done
     done < <(
@@ -296,4 +368,7 @@ PY
   done
 done
 
-echo "Hotovo. Summary: ${SUMMARY}"
+echo "Done."
+echo "Summary:   ${SUMMARY}"
+echo "Stability: ${SCAN_DIR}/stability.tsv"
+echo "Spectra:   ${SCAN_DIR}/Output/"

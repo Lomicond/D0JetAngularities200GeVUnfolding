@@ -52,10 +52,10 @@ L10P5_TRUE_N_BINS=7
 
 # Edge nudging.
 # This observable is relatively wide, so use a coherent 0.1 shift.
-# The shift is applied to internal reco and true edges only.
+# The shift is applied to internal reco edges only.
 # The first and last edges remain fixed.
 # Invalid shifted configurations are skipped.
-L10P5_EDGE_SHIFTS=(0 -0.05 0.05)
+L10P5_EDGE_SHIFTS=(0 -0.01 0.01)
 
 # -------------------------
 # Machine() parameters
@@ -197,10 +197,7 @@ for L10P5_RECO_MAX in "${L10P5_RECO_MAX_LIST[@]}"; do
 
         for L10P5_TRUE_MAX in "${L10P5_TRUE_MAX_LIST[@]}"; do
           L10P5_TRUE_EDGES_BASE=$(format_edges_from_max "${L10P5_TRUE_MAX}")
-          if ! L10P5_TRUE_EDGES=$(shift_edges "${L10P5_TRUE_EDGES_BASE}" "${L10P5_EDGE_SHIFT}"); then
-            echo "[skip] l10p5 shift=${L10P5_EDGE_SHIFT}, true max=${L10P5_TRUE_MAX} -> invalid true edges"
-            continue
-          fi
+          L10P5_TRUE_EDGES="${L10P5_TRUE_EDGES_BASE}"
           L10P5_TRUE_N_BINS=${L10P5_TRUE_N_BINS}
 
           if (( L10P5_RECO_N_BINS < L10P5_TRUE_N_BINS )); then
