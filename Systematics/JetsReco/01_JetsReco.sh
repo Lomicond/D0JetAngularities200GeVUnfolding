@@ -43,7 +43,7 @@ INPUT_FILE="${PROJECT_DIR}/Data/Output_real_final_01022026.root"
 # These codes are handled inside Simple_splot.C and Machine.C.
 # For SYS = 21..27, Machine.C switches from cached RM to TTree RM internally
 # and selects the corresponding alternative MC jet file.
-SYS_CODES=(21 22 23 24 25 26 27)
+SYS_CODES=(0 21 22 23 24 25 26 27)
 
 # Optional early checks for the MC files used by Machine.C for SYS=21..27.
 # Set to 0 if you want ROOT/Machine.C to handle missing files instead.
@@ -83,6 +83,7 @@ mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${SPLOT_LOG_DIR}" "${SCAN_DIR}/Output" "${PR
 # =========================
 jets_reco_label() {
   case "$1" in
+    0) printf 'nominal' ;;
     21) printf 'jet_rec_efficiency' ;;
     22) printf 'jet_nHitsFit13' ;;
     23) printf 'jet_nHitsFit17' ;;
@@ -96,6 +97,7 @@ jets_reco_label() {
 
 jets_reco_suffix() {
   case "$1" in
+    0)  printf '' ;;
     21) printf '_jetRecEfficiency' ;;
     22) printf '_jetnHitsFit13' ;;
     23) printf '_jetnHitsFit17' ;;

@@ -53,7 +53,7 @@ L11P5_TRUE_N_BINS=9
 # Use the same controlled edge shift as for lambda11: 0.005.
 # The shift is applied coherently to internal reco and true edges.
 # The first and last edges remain fixed.
-L11P5_EDGE_SHIFTS=(0 -0.005 0.005)
+L11P5_EDGE_SHIFTS=(0 -0.0025 0.0025)
 
 # -------------------------
 # Machine() parameters

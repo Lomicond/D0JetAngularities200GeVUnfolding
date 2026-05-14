@@ -53,7 +53,7 @@ L12_TRUE_N_BINS=8
 # Use the same controlled edge shift as for the previous angularities: 0.005.
 # The shift is applied coherently to internal reco edges.
 # The first and last edges remain fixed.
-L12_EDGE_SHIFTS=(0 -0.005 0.005)
+L12_EDGE_SHIFTS=(0 -0.0025 0.0025)
 
 # -------------------------
 # Machine() parameters
