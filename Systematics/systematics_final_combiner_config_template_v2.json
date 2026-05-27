@@ -1,0 +1,124 @@
+{
+  "project_dir": ".",
+  "input": "Systematics/systematics_components_v15.tsv",
+  "output_tsv": "Systematics/final_systematics_v2.tsv",
+  "output_csv": "Systematics/final_systematics_v2.csv",
+  "details_tsv": "Systematics/final_systematics_barlow_details_v2.tsv",
+  "write_details": true,
+  "barlow": {
+    "enabled": true,
+    "mode": "correlated",
+    "threshold": 1.0,
+    "action": "flag_only",
+    "missing_stat_action": "keep",
+    "denominator_floor": 1e-30,
+    "apply_to_component_types": [
+      "variation"
+    ],
+    "default_apply_to_groups": true,
+    "comment": "Set action to zero_if_not_significant if failed Barlow variations should be removed from the final systematic."
+  },
+  "groups": [
+    {
+      "name": "iteration",
+      "select": {
+        "source_group": "Nominal",
+        "source_name": "iteration"
+      },
+      "combine_variations": "envelope",
+      "apply_barlow": false
+    },
+    {
+      "name": "binning_first_variable",
+      "select": {
+        "source_group": "Binning",
+        "source_name": "binning_first_variable"
+      },
+      "combine_variations": "take_rms",
+      "apply_barlow": false
+    },
+    {
+      "name": "binning_second_variable",
+      "select": {
+        "source_group": "Binning",
+        "source_name": "binning_second_variable"
+      },
+      "combine_variations": "take_rms",
+      "apply_barlow": false
+    },
+    {
+      "name": "prior_shape_first_variable",
+      "select": {
+        "source_group": "PriorShape",
+        "source_name": "prior_shape_first_variable"
+      },
+      "combine_variations": "envelope"
+    },
+    {
+      "name": "prior_shape_second_variable",
+      "select": {
+        "source_group": "PriorShape",
+        "source_name": "prior_shape_second_variable"
+      },
+      "combine_variations": "envelope"
+    },
+    {
+      "name": "sweight",
+      "select": {
+        "source_group": "sWeight"
+      },
+      "combine_variations": "max_abs"
+    },
+    {
+      "name": "jetsreco",
+      "select": {
+        "source_group": "JetsReco"
+      },
+      "combine_variations": "quadrature"
+    },
+    {
+      "name": "d0meson",
+      "select": {
+        "source_group": "D0Meson"
+      },
+      "combine_variations": "pair_envelope_then_quadrature",
+      "pair_by": "source_name"
+    }
+  ],
+  "total": {
+    "combine_groups": "quadrature",
+    "include_stat": true,
+    "include_groups": [
+      "iteration",
+      "binning_first_variable",
+      "binning_second_variable",
+      "prior_shape_first_variable",
+      "prior_shape_second_variable",
+      "sweight",
+      "jetsreco",
+      "d0meson"
+    ]
+  },
+  "plots": {
+    "enabled": true,
+    "output_dir": "Systematics/FinalPlots",
+    "pdf": "final_systematics_values_v2.pdf",
+    "write_png": true,
+    "figsize": [
+      7.0,
+      5.0
+    ],
+    "dpi": 150,
+    "draw_syst_boxes": true,
+    "draw_stat_errors": true,
+    "draw_points": true,
+    "draw_unity_for_rcp": true,
+    "grid": true,
+    "legend": true,
+    "title_template": "{job_label}, {centrality_label}",
+    "stat_label": "stat.",
+    "syst_label": "syst.",
+    "x_titles": {},
+    "y_titles": {}
+  }
+}

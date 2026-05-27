@@ -957,14 +957,15 @@ TTreeReaderValue<Int_t>   nJetsInEventValue(reader, "nJetsInEvent");
             RooGaussian signal("signal", "Single Gaussian signal", mass, mean, sigma);
 
             // Systematic variation [2]: double Gaussian with common mean
-            RooRealVar sigmaRatio("sigmaRatio", "sigma_{wide}/sigma_{core}", 2.0, 1.01, 5.0);
+	    RooRealVar sigmaRatio("sigmaRatio", "sigma_{wide}/sigma_{core}", 1.8, 1.3, 2.5);
+
             RooFormulaVar sigmaWide("sigmaWide", "@0*@1", RooArgList(sigma, sigmaRatio));
 
             RooGaussian signalCore("signalCore", "Core Gaussian signal", mass, mean, sigma);
 
             RooGaussian signalWide("signalWide", "Wide Gaussian signal", mass, mean, sigmaWide);
 
-            RooRealVar fracCore("fracCore", "Core fraction", 0.8, 0.5, 0.95);
+            RooRealVar fracCore("fracCore", "Core fraction", 0.85, 0.75, 0.97);
 
             RooAddPdf signalDouble("signalDouble", "Double Gaussian signal", RooArgList(signalCore, signalWide), RooArgList(fracCore));
 

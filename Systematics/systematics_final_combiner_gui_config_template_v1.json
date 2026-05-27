@@ -1,0 +1,157 @@
+{
+  "project_dir": ".",
+  "input": "Systematics/systematics_components_v15.tsv",
+  "output_tsv": "Systematics/final_systematics_gui_v1.tsv",
+  "output_csv": "Systematics/final_systematics_gui_v1.csv",
+  "details_tsv": "Systematics/final_systematics_gui_barlow_details_v1.tsv",
+  "write_details": true,
+  "barlow": {
+    "enabled": true,
+    "mode": "correlated",
+    "threshold": 1.0,
+    "action": "flag_only",
+    "missing_stat_action": "keep",
+    "denominator_floor": 1e-30,
+    "apply_to_component_types": [
+      "variation"
+    ],
+    "default_apply_to_groups": true,
+    "comment": "Set action to zero_if_not_significant if failed Barlow variations should be removed from the final systematic."
+  },
+  "groups": [
+    {
+      "name": "iteration",
+      "select": {
+        "source_group": "Nominal",
+        "source_name": "iteration"
+      },
+      "combine_variations": "envelope",
+      "apply_barlow": false,
+      "total_mode": "quadrature",
+      "symmetrize": "none"
+    },
+    {
+      "name": "binning_first_variable",
+      "select": {
+        "source_group": "Binning",
+        "source_name": "binning_first_variable"
+      },
+      "combine_variations": "take_rms",
+      "apply_barlow": false,
+      "total_mode": "quadrature",
+      "symmetrize": "max_abs"
+    },
+    {
+      "name": "binning_second_variable",
+      "select": {
+        "source_group": "Binning",
+        "source_name": "binning_second_variable"
+      },
+      "combine_variations": "take_rms",
+      "apply_barlow": false,
+      "total_mode": "quadrature",
+      "symmetrize": "max_abs"
+    },
+    {
+      "name": "prior_shape_first_variable",
+      "select": {
+        "source_group": "PriorShape",
+        "source_name": "prior_shape_first_variable"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "symmetrize": "none"
+    },
+    {
+      "name": "prior_shape_second_variable",
+      "select": {
+        "source_group": "PriorShape",
+        "source_name": "prior_shape_second_variable"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "symmetrize": "none"
+    },
+    {
+      "name": "sweight",
+      "select": {
+        "source_group": "sWeight"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "symmetrize": "max_abs"
+    },
+    {
+      "name": "jetsreco",
+      "select": {
+        "source_group": "JetsReco"
+      },
+      "combine_variations": "quadrature",
+      "total_mode": "quadrature",
+      "symmetrize": "none"
+    },
+    {
+      "name": "d0meson",
+      "select": {
+        "source_group": "D0Meson"
+      },
+      "combine_variations": "pair_envelope_then_quadrature",
+      "pair_by": "source_name",
+      "total_mode": "quadrature",
+      "symmetrize": "none"
+    }
+  ],
+  "total": {
+    "combine_groups": "mixed",
+    "include_stat": true,
+    "include_groups": [
+      "iteration",
+      "binning_first_variable",
+      "binning_second_variable",
+      "prior_shape_first_variable",
+      "prior_shape_second_variable",
+      "sweight",
+      "jetsreco",
+      "d0meson"
+    ],
+    "default_group_mode": "quadrature"
+  },
+"plots": {
+  "enabled": true,
+  "output_dir": "Systematics/FinalPlots",
+  "pdf": "final_systematics_gui_values_v2.pdf",
+  "write_png": true,
+
+  "logy_spectra": true,
+  "logy_rcp": false,
+
+  "rcp_ylim": [0.0, 2.0],
+
+  "rcp_ylim_by_job": {
+    "RCP_z_5_20": [0.0, 2.5],
+    "RCP_l11_5_20": [0.0, 2.0],
+    "RCP_l15_5_20": [0.0, 2.0],
+    "RCP_l21_5_20": [0.0, 2.0],
+    "RCP_l31_5_20": [0.0, 2.0],
+    "RCP_l051_5_20": [0.0, 2.0],
+    "RCP_pTD_5_20": [0.0, 2.0]
+  },
+
+  "ylim_by_plot": {
+    "RCP_l11_5_20|0-10%/40-80%": [0, 2]
+  }
+}
+    "dpi": 150,
+    "draw_syst_boxes": true,
+    "draw_stat_errors": true,
+    "draw_points": true,
+    "draw_unity_for_rcp": true,
+    "grid": true,
+    "legend": true,
+    "title_template": "{job_label}, {centrality_label}",
+    "stat_label": "stat.",
+    "syst_label": "syst.",
+    "x_titles": {},
+    "y_titles": {}
+  }
+}

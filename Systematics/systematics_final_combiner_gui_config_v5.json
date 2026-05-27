@@ -1,0 +1,361 @@
+{
+  "project_dir": ".",
+  "input": "Systematics/systematics_components_v15.tsv",
+  "output_tsv": "Systematics/final_systematics_gui_v4.tsv",
+  "output_csv": "Systematics/final_systematics_gui_v4.csv",
+  "details_tsv": "Systematics/final_systematics_gui_barlow_details_v4.tsv",
+  "write_details": true,
+  "barlow": {
+    "enabled": true,
+    "mode": "correlated",
+    "threshold": 1.0,
+    "action": "subtract_stat_diff",
+    "missing_stat_action": "keep",
+    "denominator_floor": 1e-30,
+    "apply_to_component_types": [
+      "variation"
+    ],
+    "default_apply_to_groups": true
+  },
+  "groups": [
+    {
+      "name": "iteration",
+      "select": {
+        "source_group": "Nominal",
+        "source_name": "iteration"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "regularization / iteration +/-1 envelope; correlated shape source"
+    },
+    {
+      "name": "binning_first_variable",
+      "select": {
+        "source_group": "Binning",
+        "source_name": "binning_first_variable"
+      },
+      "combine_variations": "take_rms",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "RMS from binning scan; treat as analysis-choice shape source"
+    },
+    {
+      "name": "binning_second_variable",
+      "select": {
+        "source_group": "Binning",
+        "source_name": "binning_second_variable"
+      },
+      "combine_variations": "take_rms",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "RMS from binning scan; treat as analysis-choice shape source"
+    },
+    {
+      "name": "prior_shape_first_variable",
+      "select": {
+        "source_group": "PriorShape",
+        "source_name": "prior_shape_first_variable"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "prior-shape plus/minus envelope; correlated shape source"
+    },
+    {
+      "name": "prior_shape_second_variable",
+      "select": {
+        "source_group": "PriorShape",
+        "source_name": "prior_shape_second_variable"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "prior-shape plus/minus envelope; correlated shape source"
+    },
+    {
+      "name": "sweight_bkg_model",
+      "select": {
+        "source_group": "sWeight",
+        "source_name": "cheby2_bkg"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0 signal extraction: background-model variation"
+    },
+    {
+      "name": "sweight_signal_model",
+      "select": {
+        "source_group": "sWeight",
+        "source_name": "['double_gauss_sig', 'student_t_sig']"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0 signal extraction: max of double-Gauss and Student-t signal-model variations"
+    },
+    {
+      "name": "sweight_fit_range",
+      "select": {
+        "source_group": "sWeight",
+        "source_name": "['narrow_fit_range', 'wide_fit_range']"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0 signal extraction: max/envelope of narrow and wide fit ranges"
+    },
+    {
+      "name": "sweight_negative_weights",
+      "select": {
+        "source_group": "sWeight",
+        "source_name": "zeroed_negative_bins"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0 signal extraction: treatment of negative sWeight bins"
+    },
+    {
+      "name": "jetsreco_jet_dca",
+      "select": {
+        "source_group": "JetsReco",
+        "source_name": "['jet_DCA2_8', 'jet_DCA3_2']"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": true,
+      "notes": "jet-reconstruction DCA cut variation: max of DCA2.8 and DCA3.2"
+    },
+    {
+      "name": "jetsreco_jet_hadroniccorr",
+      "select": {
+        "source_group": "JetsReco",
+        "source_name": "jet_hadronicCorr"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": true,
+      "notes": "jet-reconstruction hadronic correction; correlated source"
+    },
+    {
+      "name": "jetsreco_jet_ktdrop",
+      "select": {
+        "source_group": "JetsReco",
+        "source_name": "jet_kTDrop"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": true,
+      "notes": "leading kT jet drop; treated as uncorrelated as in old D0 spectra note"
+    },
+    {
+      "name": "jetsreco_jet_nhitsfit",
+      "select": {
+        "source_group": "JetsReco",
+        "source_name": "['jet_nHitsFit13', 'jet_nHitsFit17']"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": true,
+      "notes": "track nHitsFit variation: max of nHitsFit13 and nHitsFit17"
+    },
+    {
+      "name": "jetsreco_jet_rec_efficiency",
+      "select": {
+        "source_group": "JetsReco",
+        "source_name": "jet_rec_efficiency"
+      },
+      "combine_variations": "max_abs",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": true,
+      "notes": "jet reconstruction efficiency; correlated source"
+    },
+    {
+      "name": "d0meson_double_counting",
+      "select": {
+        "source_group": "D0Meson",
+        "source_name": "double_counting"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0-meson double-counting up/down source envelope; kept as separate correlated component"
+    },
+    {
+      "name": "d0meson_pid",
+      "select": {
+        "source_group": "D0Meson",
+        "source_name": "pid"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0-meson PID up/down source envelope; correlated reconstruction-efficiency source"
+    },
+    {
+      "name": "d0meson_secondary_track",
+      "select": {
+        "source_group": "D0Meson",
+        "source_name": "secondary_track"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0-meson secondary-track up/down source envelope; correlated reconstruction-efficiency source"
+    },
+    {
+      "name": "d0meson_single_track",
+      "select": {
+        "source_group": "D0Meson",
+        "source_name": "single_track"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0-meson single-track up/down source envelope; correlated reconstruction-efficiency source"
+    },
+    {
+      "name": "d0meson_topo_eff",
+      "select": {
+        "source_group": "D0Meson",
+        "source_name": "topo_eff"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0-meson topological-efficiency up/down source envelope; correlated reconstruction-efficiency source"
+    },
+    {
+      "name": "d0meson_tpc_track",
+      "select": {
+        "source_group": "D0Meson",
+        "source_name": "tpc_track"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0-meson TPC-tracking up/down source envelope; correlated tracking source"
+    },
+    {
+      "name": "d0meson_vertex_correction",
+      "select": {
+        "source_group": "D0Meson",
+        "source_name": "vertex_correction"
+      },
+      "combine_variations": "envelope",
+      "total_mode": "quadrature",
+      "correlation": "uncorrelated",
+      "symmetrize": "max_abs",
+      "apply_barlow": false,
+      "notes": "D0-meson vertex-correction up/down source envelope; treated as uncorrelated as in old D0 spectra note"
+    }
+  ],
+  "total": {
+    "combine_groups": "mixed",
+    "default_group_mode": "quadrature",
+    "include_stat": false,
+    "include_groups": [
+      "iteration",
+      "binning_first_variable",
+      "binning_second_variable",
+      "prior_shape_first_variable",
+      "prior_shape_second_variable",
+      "sweight_bkg_model",
+      "sweight_signal_model",
+      "sweight_fit_range",
+      "sweight_negative_weights",
+      "jetsreco_jet_dca",
+      "jetsreco_jet_hadroniccorr",
+      "jetsreco_jet_ktdrop",
+      "jetsreco_jet_nhitsfit",
+      "jetsreco_jet_rec_efficiency",
+      "d0meson_double_counting",
+      "d0meson_pid",
+      "d0meson_secondary_track",
+      "d0meson_single_track",
+      "d0meson_topo_eff",
+      "d0meson_tpc_track",
+      "d0meson_vertex_correction"
+    ]
+  },
+  "plots": {
+    "output_dir": "Systematics/FinalPlots",
+    "pdf": "final_systematics_gui_values_v2.pdf",
+    "write_png": true,
+    "figsize": [
+      7.0,
+      5.0
+    ],
+    "dpi": 150,
+    "draw_syst_boxes": true,
+    "draw_stat_errors": true,
+    "draw_points": true,
+    "draw_unity_for_rcp": true,
+    "grid": true,
+    "legend": true,
+    "title_template": "{job_label}, {centrality_label}",
+    "stat_label": "stat.",
+    "syst_label": "syst.",
+    "enabled": true,
+    "logy": false,
+    "logy_spectra": true,
+    "force_default_logy_spectra": true,
+    "logy_rcp": false,
+    "ylim": [],
+    "spectra_ylim": [],
+    "rcp_ylim": [
+      0.0,
+      2.0
+    ],
+    "force_default_rcp_ylim": true,
+    "ylim_by_job": {},
+    "ylim_by_observable": {},
+    "ylim_by_plot": {},
+    "rcp_ylim_by_job": {}
+  },
+  "output_root": "Systematics/final_systematics_results_v10.root",
+  "write_root": true,
+  "root_command": "root"
+}

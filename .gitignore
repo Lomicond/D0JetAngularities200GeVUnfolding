@@ -1,0 +1,30 @@
+# ROOT files
+*.root
+*.root*
+
+# Output files
+*.pdf
+*.tsv
+Systematics/generated_final_systematics_root_writer.C
+
+# Generated output directories
+/Output/
+/OutputPdf/
+/Data/
+Data
+/DefaultScanDir/
+/Systematics/*/scan*/
+/FinalPlot/
+/LIDO-jet-angularity/
+/Systematics/FinalPlots/
+/Systematics/Plots/
+
+# ROOT ACLiC / dictionary build products
+*_C.d
+*_C.so
+*dict_rdict.pcm
+.rootlogon
+*.csv
+*tsv
+*.zip
+*.giosave*

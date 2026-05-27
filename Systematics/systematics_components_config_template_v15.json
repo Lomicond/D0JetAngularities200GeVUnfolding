@@ -1,0 +1,489 @@
+{
+  "project_dir": ".",
+  "output_tsv": "Systematics/systematics_components_v15.tsv",
+  "output_csv": "Systematics/systematics_components_v15.csv",
+  "strict": false,
+  "method": "ICS",
+  "iteration": 4,
+  "extra_hist_map": {},
+  "jobs": [
+    {
+      "label": "z",
+      "result_kind": "z",
+      "observable_pretty": "z",
+      "centralities": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "l11",
+      "result_kind": "#lambda^{1}_{1}",
+      "observable_pretty": "#lambda^{1}_{1}",
+      "centralities": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "l15",
+      "result_kind": "#lambda^{1}_{1.5}",
+      "observable_pretty": "#lambda^{1}_{1.5}",
+      "centralities": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "l21",
+      "result_kind": "#lambda^{1}_{2}",
+      "observable_pretty": "#lambda^{1}_{2}",
+      "centralities": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "l31",
+      "result_kind": "#lambda^{1}_{3}",
+      "observable_pretty": "#lambda^{1}_{3}",
+      "centralities": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "l051",
+      "result_kind": "#lambda^{1}_{0.5}",
+      "observable_pretty": "#lambda^{1}_{0.5}",
+      "centralities": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "pTD",
+      "result_kind": "P_{T}^{D}",
+      "observable_pretty": "P_{T}^{D}",
+      "centralities": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "label": "RCP_z_5_20",
+      "result_kind": "RCP 5-20 z",
+      "observable_pretty": "R_{CP}(z), 5<p_{T,Jet}<20",
+      "centralities": [
+        0,
+        1,
+        2
+      ],
+      "rcp_index_labels": {
+        "0": "0-10/10-40",
+        "1": "0-10/40-80",
+        "2": "10-40/40-80"
+      }
+    },
+    {
+      "label": "RCP_l11_5_20",
+      "result_kind": "RCP 5-20 #lambda^{1}_{1}",
+      "observable_pretty": "R_{CP}(#lambda^{1}_{1}), 5<p_{T,Jet}<20",
+      "centralities": [
+        0,
+        1,
+        2
+      ],
+      "rcp_index_labels": {
+        "0": "0-10/10-40",
+        "1": "0-10/40-80",
+        "2": "10-40/40-80"
+      }
+    },
+    {
+      "label": "RCP_l15_5_20",
+      "result_kind": "RCP 5-20 #lambda^{1}_{1.5}",
+      "observable_pretty": "R_{CP}(#lambda^{1}_{1.5}), 5<p_{T,Jet}<20",
+      "centralities": [
+        0,
+        1,
+        2
+      ],
+      "rcp_index_labels": {
+        "0": "0-10/10-40",
+        "1": "0-10/40-80",
+        "2": "10-40/40-80"
+      }
+    },
+    {
+      "label": "RCP_l21_5_20",
+      "result_kind": "RCP 5-20 #lambda^{1}_{2}",
+      "observable_pretty": "R_{CP}(#lambda^{1}_{2}), 5<p_{T,Jet}<20",
+      "centralities": [
+        0,
+        1,
+        2
+      ],
+      "rcp_index_labels": {
+        "0": "0-10/10-40",
+        "1": "0-10/40-80",
+        "2": "10-40/40-80"
+      }
+    },
+    {
+      "label": "RCP_l31_5_20",
+      "result_kind": "RCP 5-20 #lambda^{1}_{3}",
+      "observable_pretty": "R_{CP}(#lambda^{1}_{3}), 5<p_{T,Jet}<20",
+      "centralities": [
+        0,
+        1,
+        2
+      ],
+      "rcp_index_labels": {
+        "0": "0-10/10-40",
+        "1": "0-10/40-80",
+        "2": "10-40/40-80"
+      }
+    },
+    {
+      "label": "RCP_l051_5_20",
+      "result_kind": "RCP 5-20 #lambda^{1}_{0.5}",
+      "observable_pretty": "R_{CP}(#lambda^{1}_{0.5}), 5<p_{T,Jet}<20",
+      "centralities": [
+        0,
+        1,
+        2
+      ],
+      "rcp_index_labels": {
+        "0": "0-10/10-40",
+        "1": "0-10/40-80",
+        "2": "10-40/40-80"
+      }
+    },
+    {
+      "label": "RCP_pTD_5_20",
+      "result_kind": "RCP 5-20 P_{T}^{D}",
+      "observable_pretty": "R_{CP}(P_{T}^{D}), 5<p_{T,Jet}<20",
+      "centralities": [
+        0,
+        1,
+        2
+      ],
+      "rcp_index_labels": {
+        "0": "0-10/10-40",
+        "1": "0-10/40-80",
+        "2": "10-40/40-80"
+      }
+    }
+  ],
+  "nominal": {
+    "enabled": true,
+    "file_glob": "Systematics/Nominal/scanNominal/Output/OutputSpectra*.root",
+    "include_iteration_variations": true
+  },
+  "groups": [
+    {
+      "enabled": true,
+      "source_group": "JetsReco",
+      "scan_dir": "Systematics/JetsReco/scanJetsReco",
+      "summary": "{scan_dir}/summary.tsv",
+      "file_pattern": "{scan_dir}/Output/OutputSpectra{run_id}.root",
+      "source_name_column": "jets_reco_label",
+      "variation_name_column": "jets_reco_label",
+      "variation_code_column": "systematicSPlot",
+      "skip_source_names": [
+        "nominal"
+      ],
+      "component_type": "variation",
+      "notes": "auto-loaded from JetsReco summary.tsv"
+    },
+    {
+      "enabled": true,
+      "source_group": "sWeight",
+      "scan_dir": "Systematics/sWeight/scanSWeight",
+      "summary": "{scan_dir}/summary.tsv",
+      "file_pattern": "{scan_dir}/Output/OutputSpectra{run_id}.root",
+      "source_name_column": "sweight_label",
+      "variation_name_column": "sweight_label",
+      "variation_code_column": "systematicSPlot",
+      "skip_source_names": [
+        "nominal"
+      ],
+      "skip_variation_codes": [
+        "0"
+      ],
+      "code_label_map": {
+        "1": "cheby2_bkg",
+        "2": "double_gauss_sig",
+        "3": "student_t_sig",
+        "4": "narrow_fit_range",
+        "5": "wide_fit_range",
+        "6": "zeroed_negative_bins"
+      },
+      "component_type": "variation",
+      "notes": "auto-labels numeric systematicSPlot codes when sweight_label is absent"
+    },
+    {
+      "enabled": true,
+      "source_group": "PriorShape",
+      "scan_dir": "Systematics/PriorShape/scanPriorShape",
+      "summary": "{scan_dir}/summary.tsv",
+      "file_pattern": "{scan_dir}/Output/OutputSpectra{run_id}.root",
+      "source_name_column": "prior_label",
+      "variation_name_column": "prior_label",
+      "variation_code_column": "usePriorShapeWeighting",
+      "skip_source_names": [
+        "nominal"
+      ],
+      "skip_variation_codes": [
+        "0"
+      ],
+      "prior_shape_auto_labels": true,
+      "prior_shape_code_scheme": "first_second",
+      "prior_shape_filter_relevant_to_job": true,
+      "prior_shape_sign_map": {
+        "0": "plus20",
+        "1": "minus20",
+        "2": "minus20"
+      },
+      "component_type": "variation",
+      "notes": "scanPriorShape scheme: 10/11=jet pT +/-; 20/21=second variable +/-"
+    },
+    {
+      "enabled": true,
+      "source_group": "D0Meson",
+      "scan_dir": "Systematics/D0Meson/scanPaperSys",
+      "summary": "{scan_dir}/summary.tsv",
+      "file_pattern": "{scan_dir}/Output/OutputSpectra{run_id}.root",
+      "source_name_columns": [
+        "paper_label",
+        "d0meson_label",
+        "d0_meson_label",
+        "paperSys_label",
+        "paper_sys_label",
+        "d0_label",
+        "systematic_label",
+        "label"
+      ],
+      "variation_name_columns": [
+        "paper_label",
+        "d0meson_label",
+        "d0_meson_label",
+        "paperSys_label",
+        "paper_sys_label",
+        "d0_label",
+        "systematic_label",
+        "label"
+      ],
+      "variation_code_columns": [
+        "systematicSPlot",
+        "paperSys",
+        "paper_sys",
+        "systematicD0Meson",
+        "systematicD0",
+        "systematicPaper",
+        "systematicSPlot",
+        "systematic"
+      ],
+      "skip_source_names": [
+        "nominal"
+      ],
+      "skip_variation_codes": [
+        "0"
+      ],
+      "d0meson_auto_labels": true,
+      "component_type": "variation",
+      "notes": "scanPaperSys: paper_label is parsed into paired D0-meson systematic sources"
+    }
+  ],
+  "binning": {
+    "enabled": true,
+    "aggregate_modes": [
+      "rms"
+    ],
+    "default_metric_cuts": {},
+    "default_true_range_filter": {
+      "enabled": false,
+      "mode": "ignore",
+      "true_min": "",
+      "true_max": ""
+    },
+    "true_range_overrides": [],
+    "metric_cut_overrides": [
+      {
+        "match": {
+          "job_label": "l11",
+          "centrality": 0,
+          "source_name": "binning_first_variable"
+        },
+        "metric_cuts": {
+          "weighted_drift_pct": {
+            "min": "",
+            "max": ""
+          },
+          "rms_drift_pct": {
+            "min": "",
+            "max": ""
+          },
+          "worst_bin_pct": {
+            "min": "",
+            "max": ""
+          }
+        },
+        "notes": "example rule; empty min/max means disabled. Add concrete values per observable/centrality/source."
+      }
+    ],
+    "sources": [
+      {
+        "enabled": true,
+        "source_group": "Binning",
+        "source_name": "binning_first_variable",
+        "scan_dir": "Systematics/Binning/scanJetPt",
+        "summary": "{scan_dir}/summary.tsv",
+        "stability": "{scan_dir}/stability.tsv",
+        "file_pattern": "{scan_dir}/Output/OutputSpectra{run_id}.root",
+        "aggregate_modes": [
+          "rms"
+        ],
+        "selection": {
+          "cent": "{cent}",
+          "dim": "2D",
+          "observable": "{auto_observable}",
+          "axis": "{auto_axis}",
+          "exact": {},
+          "axis_candidates": [
+            "PT"
+          ]
+        },
+        "metric_cuts": {},
+        "observable_map": {
+          "default": "{auto_observable}"
+        },
+        "axis_candidates": [
+          "PT",
+          "pt",
+          "pT",
+          "JetPt",
+          "jetPt",
+          "jet_pt",
+          "X",
+          "x",
+          "main",
+          "first"
+        ],
+        "on_no_axis_match": "no_filter",
+        "on_no_observable_match": "no_filter",
+        "true_range_filter": {
+          "enabled": true,
+          "mode": "allowed",
+          "true_min": [
+            "1"
+          ],
+          "true_max": [
+            "20",
+            "25"
+          ],
+          "on_missing_columns": "error"
+        },
+        "reco_range_filter": {
+          "enabled": true,
+          "mode": "allowed",
+          "reco_min": [
+            "1"
+          ],
+          "reco_max": [
+            "20",
+            "25"
+          ],
+          "on_missing_columns": "error"
+        },
+        "notes": "Jet-pT binning endpoint cut: true/reco min=1, max=20 or 25."
+      },
+      {
+        "enabled": true,
+        "source_group": "Binning",
+        "source_name": "binning_second_variable",
+        "scan_dir_map": {
+          "z": "Systematics/Binning/scanZ",
+          "l11": "Systematics/Binning/scanL11",
+          "l15": "Systematics/Binning/scanL11p5",
+          "l21": "Systematics/Binning/scanL12",
+          "l31": "Systematics/Binning/scanL13",
+          "l051": "Systematics/Binning/scanL10p5",
+          "pTD": "Systematics/Binning/scanPTD",
+          "default": "Systematics/Binning/scanZ"
+        },
+        "summary": "{scan_dir}/summary.tsv",
+        "stability": "{scan_dir}/stability.tsv",
+        "file_pattern": "{scan_dir}/Output/OutputSpectra{run_id}.root",
+        "aggregate_modes": [
+          "rms"
+        ],
+        "selection": {
+          "cent": "{cent}",
+          "dim": "2D",
+          "observable": "{auto_observable}",
+          "axis": "{auto_axis}",
+          "exact": {},
+          "axis_candidates": [
+            "var"
+          ]
+        },
+        "metric_cuts": {},
+        "observable_map": {
+          "default": "{auto_observable}"
+        },
+        "axis_candidates": [
+          "var",
+          "Y",
+          "y",
+          "secondary",
+          "second",
+          "observable"
+        ],
+        "on_no_axis_match": "no_filter",
+        "on_no_observable_match": "no_filter",
+        "true_range_filter": {
+          "enabled": true,
+          "mode": "allowed",
+          "true_min": [
+            "0"
+          ],
+          "true_max": [
+            "1",
+            "1.0",
+            "1.01"
+          ],
+          "on_missing_columns": "error"
+        },
+        "reco_range_filter": {
+          "enabled": true,
+          "mode": "min_exact_max_le",
+          "reco_min": [
+            "0"
+          ],
+          "reco_max": [
+            "1.01"
+          ],
+          "on_missing_columns": "error"
+        },
+        "notes": "Second-variable binning endpoint cut: true/reco range exactly 0..1."
+      }
+    ],
+    "default_reco_range_filter": {
+      "enabled": false,
+      "mode": "ignore",
+      "reco_min": "",
+      "reco_max": ""
+    },
+    "reco_range_overrides": [],
+    "endpoint_filter_notes": "For binning endpoint cuts: mode=allowed keeps scans with endpoints in the provided lists. Jet-pT source uses true/reco min=1 and max=20 or 25. Second-variable source uses true/reco 0..1. Set enabled=false or mode=ignore to use all ranges."
+  }
+}
