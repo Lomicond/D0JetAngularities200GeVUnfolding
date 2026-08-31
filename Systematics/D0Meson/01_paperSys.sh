@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 MIN_PT_D0 MAX_PT_D0"
+  echo "Example: $0 1 10"
+  exit 1
+fi
+
+MIN_PT_D0="$1"
+MAX_PT_D0="$2"
+MIN_PT_D0_SPLOT=1 #For sPlot, it can be wider
+MAX_PT_D0_SPLOT=10
+
+if ! [[ "${MIN_PT_D0}" =~ ^[0-9]+$ && "${MAX_PT_D0}" =~ ^[0-9]+$ ]]; then
+  echo "[error] MIN_PT_D0 and MAX_PT_D0 must be integers."
+  exit 1
+fi
+
+if (( MIN_PT_D0 >= MAX_PT_D0 )); then
+  echo "[error] MIN_PT_D0 must be smaller than MAX_PT_D0."
+  exit 1
+fi
+
 # ============================================================
 # Paper D0-reconstruction systematic scan
 #
@@ -56,9 +77,6 @@ SYS_CODES=(0 7 8 9 10 11 12 13 14 15 16 17 18 19 20)
 # -------------------------
 # Simple_splot() and Machine() parameters
 # -------------------------
-MIN_PT_D0=1
-MAX_PT_D0=10
-
 FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
@@ -73,7 +91,7 @@ MAX_TOTAL_RUNS=0
 # -------------------------
 # Output location
 # -------------------------
-SCAN_DIR="${SCRIPT_DIR}/scanPaperSys"
+SCAN_DIR="${SCRIPT_DIR}/scanPaperSys_${MIN_PT_D0}_${MAX_PT_D0}"
 OVR_DIR="${SCAN_DIR}/overrides"
 RUN_DIR="${SCAN_DIR}/runs"
 SPLOT_LOG_DIR="${SCAN_DIR}/paperSys_logs"
@@ -184,7 +202,7 @@ for SYS in "${SYS_CODES[@]}"; do
 
   rm -f "${DONE}"
 
-  SPLOT_CMD="${SPLOT_MACRO}${SPLOT_ACLIC_SUFFIX}( \"${INPUT_FILE}\", \"Output\", \"Output2\", ${MIN_PT_D0}, ${MAX_PT_D0}, ${SYS} )"
+  SPLOT_CMD="${SPLOT_MACRO}${SPLOT_ACLIC_SUFFIX}( \"${INPUT_FILE}\", \"Output\", \"Output2\", ${MIN_PT_D0_SPLOT}, ${MAX_PT_D0_SPLOT}, ${SYS} )"
   printf '%s\n' "root -l -b -q '${SPLOT_CMD}'" > "${SPLOT_LOG_DIR}/paperSys_sys${SYS}_${LABEL}_command.txt"
 
   echo "[paperSys] sys=${SYS} (${LABEL})"

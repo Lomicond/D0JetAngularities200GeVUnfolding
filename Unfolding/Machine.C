@@ -68,8 +68,6 @@ void DeleteArray(T *array[], int size) {
     }
 }
 
-double SetMinD0Pt = 0;
-
 map <Int_t, Int_t> centralityMap = {
         {8, 0}, // 8->   0-10%
         {7, 1}, // 7->  10-20%
@@ -539,9 +537,9 @@ void DrawTextAbove(int siter = 0, int size = 20) {
 
 //    TString textAbove = Form("#color[4]{Closure test:} p_{T}(D^{0}) > #color[2]{%.2f GeV/c}; Truth Bins: #color[2]{%d} (%.1f - %.1f), ecb: #color[2]{%s}; Reco Bins: #color[2]{%d}, ecb: #color[2]{%s}, w. prior: #color[2]{%s}", SetMinD0Pt, nMcBins, TruthJetPtMin, TruthJetPtMax ,useCustomPtMcBins?"false":"true", nRecoBins, useCustomPtRecoBins?"false":"true", WeightedPrior?"true":"false");
     if (siter != -1)
-        texMin->DrawLatex(0.5, 0.98, Form("#color[4]{%s} p_{T}(D^{0}) > #color[2]{%.2f GeV/c}", Word, SetMinD0Pt));
+        texMin->DrawLatex(0.5, 0.98, Form("#color[4]{%s} #color[2]{%.2f GeV/c} <  p_{T}(D^{0}) < #color[2]{%.2f GeV/c}", Word, minPtD0Cut, maxPtD0Cut));
     else
-        texMin->DrawLatex(0.5, 0.98, Form("#color[4]{%s} p_{T}(D^{0}) > #color[2]{%.2f GeV/c}", Word, SetMinD0Pt));
+        texMin->DrawLatex(0.5, 0.98, Form("#color[4]{%s} #color[2]{%.2f GeV/c} <  p_{T}(D^{0}) < #color[2]{%.2f GeV/c}", Word, minPtD0Cut, maxPtD0Cut));
     texMin->DrawLatex(0.28, 0.95, BinningReco[0]);
     texMin->DrawLatex(0.28, 0.92, BinningReco[1]);
     texMin->DrawLatex(0.28, 0.89, BinningReco[2]);
@@ -5954,10 +5952,10 @@ void BuildResponse2DAngFromCache(int iCent, int iAng,
 }
 void LoadDataCache()
 {
-    TFile *fCache = TFile::Open(CacheRMFileName, "READ");
+    TFile *fCache = TFile::Open(Form(CacheRMFileName+"_%.0f_%.0f.root", minPtD0Cut, maxPtD0Cut), "READ");
     if (!fCache || fCache->IsZombie()) {
         cout << "Cannot open cache file: " << CacheRMFileName << endl;
-        return;
+        exit(1);
     }
 
     CheckAllCacheCompatibility();
@@ -6600,7 +6598,7 @@ void LoadDataMC() {
     if (FillCacheRM)
     {
     
-        TFile *fCache = new TFile("Output/CacheRM.root", "RECREATE");
+        TFile *fCache = new TFile(Form(CacheRMFileName+"_%.0f_%.0f.root", minPtD0Cut, maxPtD0Cut), "RECREATE");
         fCache->cd();
 
         // --- 1D pT ---
@@ -7750,7 +7748,7 @@ void Machine(bool _fonllJet = true, bool _CutOfNegative = true, double _minJetPt
              int _savedIter = 4,
              char *InputFileIn = 0,
              const char *OutputFile = "Test",
-             double _minPtD0Cut = 1, double _maxPtD0Cut = 10, //min not applied
+             double _minPtD0Cut = 5, double _maxPtD0Cut = 10, //min not applied
              const char *OverrideMacro = "",
              const char *ScanDir = "Test",
              int usePriorShapeWeighting = 0, //0 none, 1X JetpT, 2X second variable // X = 0 +20%; X = 1 -20%
@@ -7874,7 +7872,7 @@ outputFileMachine = OutputFile;
 
     std::string outputF;
     maxPtD0Cut = _maxPtD0Cut;
-    SetMinD0Pt = minPtD0Cut;
+    minPtD0Cut = _minPtD0Cut;
     //Output PDF file
 
     TString _outPdf = "./OutputPdf/" + TString(OutputFile) + TString(runId) + TString(Method)+"Rcp.pdf";

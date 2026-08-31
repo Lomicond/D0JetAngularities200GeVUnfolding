@@ -23,6 +23,7 @@
 #include "TH2D.h"
 #include "THnSparse.h"
 #include "RooUnfoldResponse.h"
+#include <unistd.h>
 
 // use this order for safety on library loading
 using namespace RooFit;
@@ -1597,7 +1598,7 @@ void RenameTreeAndMerge(const char* FileInput, const char* FileOutput,
 
 
 
-    void Simple_splot(const char* InputFileIn = 0, const char* OutputFile = "Output", const char* OutputFile2 = "Output2", double minPtD0Cut =5, double maxPtD0Cut = 10, int systematicSPlot = 0)
+    void Simple_splot(const char* InputFileIn = 0, const char* OutputFile = "Output", const char* OutputFile2 = "Output2", double minPtD0Cut =1, double maxPtD0Cut = 10, int systematicSPlot = 0)
     {
 
     TString InputFile;     

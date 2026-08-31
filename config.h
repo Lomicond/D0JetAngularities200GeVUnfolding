@@ -51,16 +51,16 @@ const Int_t DividedMcDataBy = 1;
 const char *outputFile;
 const char *outputFileMachine;
 
-double minPtD0Cut = 1;
-double maxPtD0Cut = 10;
+double minPtD0Cut = 5; //Change in head function Machine()
+double maxPtD0Cut = 10; //Change in head function Machine()
 
 TString Method = "ICS"; //ICS vs AREA
 
-bool FillStandardRM = true;
+bool FillStandardRM = false;
 bool FillCacheRM = false; //Be carefoul!!!
 //bool LoadResponseMatrix = false;
-bool UseCachedRM = false;
-TString CacheRMFileName = "./Output/CacheRM.root";
+bool UseCachedRM = true;
+TString CacheRMFileName = "./Output/CacheRM";
 
 //Histograms
 TH1D Unfolded2D_X[7][3];
@@ -84,9 +84,9 @@ TH2D* hCacheFakePtAng[3][6];
 
 //TString McJetsFileData = "./Data/Output_sim_final_01022026_slimfix.root"; //inclusive
 //TString McJetsFileData = "./Data/Output_sim_cf_1902206_slim.root"; //inclusive
-////TString McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; //inclusive
+TString McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; //inclusive
 
-TString McJetsFileData = "/home/ondrej/Desktop/Pracovna/Koš/testHadrCorrNew28082026.root"; //inclusive
+////TString McJetsFileData = "/home/ondrej/Desktop/Pracovna/Koš/testHadrCorrNew28082026.root"; //inclusive
 
 TString NeilFONLL = "./Data/FONLL_Pt_1_30.root";
 TString D0SpectraBeforeShift = "./Data/new/D0_Spectra_Run14_HFT_beforePtShift.root"; //inclusive
