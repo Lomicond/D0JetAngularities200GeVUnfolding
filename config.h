@@ -56,10 +56,10 @@ double maxPtD0Cut = 10;
 
 TString Method = "ICS"; //ICS vs AREA
 
-bool FillStandardRM = false;
+bool FillStandardRM = true;
 bool FillCacheRM = false; //Be carefoul!!!
 //bool LoadResponseMatrix = false;
-bool UseCachedRM = true;
+bool UseCachedRM = false;
 TString CacheRMFileName = "./Output/CacheRM.root";
 
 //Histograms
@@ -84,7 +84,9 @@ TH2D* hCacheFakePtAng[3][6];
 
 //TString McJetsFileData = "./Data/Output_sim_final_01022026_slimfix.root"; //inclusive
 //TString McJetsFileData = "./Data/Output_sim_cf_1902206_slim.root"; //inclusive
-TString McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; //inclusive
+////TString McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; //inclusive
+
+TString McJetsFileData = "/home/ondrej/Desktop/Pracovna/Koš/testHadrCorrNew28082026.root"; //inclusive
 
 TString NeilFONLL = "./Data/FONLL_Pt_1_30.root";
 TString D0SpectraBeforeShift = "./Data/new/D0_Spectra_Run14_HFT_beforePtShift.root"; //inclusive
@@ -109,7 +111,7 @@ const Double_t RecoJetPtMin[3] = {1, 1, 1};
 
 const Double_t RecoJetPtMax[3] = {20, 20, 20};
 
-const Double_t TrainToTestRatio = 0.75;
+const Double_t TrainToTestRatio = 0.5;
 //graphs in createResponseMatrix
 bool PearsonCoeff = true;
 bool ResponseMatrix = true;
@@ -147,7 +149,7 @@ bool WeightedPrior = true;
 double McPtShift[3] = {0, 0, 0};
 
 
-const vector<Int_t> PlotIterations = {1,2,3, 4, 5,6};
+const vector<Int_t> PlotIterations = {1,2,3, 4, 5};
 
 //const vector<Int_t> PlotIterations = {1, 2, 3, 4, 5, 10, 15, 20};
 const Int_t nIter = PlotIterations.size();
@@ -436,9 +438,17 @@ vector<Double_t> ptRecoBinsVec[nCentralityBins] = {
 { 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 21, 25},
 { 1,1.5,2,2.5, 3,3.5,4,4.5,5, 6, 9,15,20}*/
 
+/*
 {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 25},
 {1, 1.5, 2, 2.5, 3, 3.5, 4.5, 7, 10, 13, 16, 19, 25},
 {1, 1.5, 2, 2.5, 3, 4, 5, 7, 9, 11, 13, 18, 25}
+*/
+{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 25},
+{1, 1.5, 2, 2.5, 3, 3.5, 4.5, 7, 10, 13, 16, 19, 25},
+{1, 1.5, 2, 2.5, 3, 4, 5, 7, 9, 11, 13, 18, 25}
+
+
+
 /*
 {0,1,1.5,2,2.5,3,6,9,12,15,18,21,24},
 {0,1,1.5,2,2.5,3,6,9,12,15,18,21,24},

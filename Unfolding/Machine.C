@@ -808,8 +808,11 @@ void plotComparison(TCanvas *can,
         //gPad->SetLogx();
         //zobrazi od druhého binu
         hUnfoldedProjY[iter]->GetYaxis()->SetTitle("dN/d" + var);
+        //offset
+        hUnfoldedProjY[iter]->GetYaxis()->SetTitleOffset(1.5);
         //set x axis
         hUnfoldedProjY[iter]->GetXaxis()->SetTitle(var);
+        hUnfoldedProjY[iter]->GetXaxis()->SetTitleOffset(1.5);
 
         if (iter == 4) {
             hUnfoldedProjY[iter]->SetMarkerStyle(20);
@@ -2425,15 +2428,21 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
 
     can->Divide(2, 2);
 
-    TLegend leg1(0.28, 0.70, 0.43, 0.92);
+    TLegend leg1(0.28, 0.75, 0.43, 0.92);
     leg1.SetBorderSize(0);
     leg1.SetFillStyle(0);
+    leg1.SetTextSize(0.025);
+
 
     TLegend leg2(0.50, 0.80, 0.85, 0.87);
     leg2.SetBorderSize(0);
     leg2.SetFillStyle(0);
     leg2.SetTextSize(0.035);
 
+    TLegend leg2B(0.63, 0.60, 0.98, 0.87);
+    leg2B.SetBorderSize(0);
+    leg2B.SetFillStyle(0);
+    leg2B.SetTextSize(0.035);
 
     TLatex tex;
     tex.SetNDC();
@@ -2486,7 +2495,7 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
     NormalizeByBinWidth(&hResponseReco2D_Y, 2003);
 
     leg2.AddEntry(&hRealDataCopyX, "Real Data", "lp");
-    if (ClosureTest) leg1.AddEntry(&hResponseTruth2D_X, "Mc (scaled)", "lp");
+    if (ClosureTest) leg1.AddEntry(&hResponseTruth2D_X, "Mc", "lp");
     else leg1.AddEntry((TH1D *) 0, "Real unfolded:", "");
     leg2.AddEntry(&hResponseReco2D_X, "Mc Reco (scaled)", "lp");
 
@@ -2512,10 +2521,14 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
 
     if (ClosureTest) {
         hResponseTruth2D_X.SetMarkerStyle(21);
-        hResponseTruth2D_X.Scale(1. * hRealDataCopyX.Integral("width") / hResponseTruth2D_X.Integral("width"));
+        //hResponseTruth2D_X.Scale(1. * hRealDataCopyX.Integral("width") / hResponseTruth2D_X.Integral("width"));
         hResponseTruth2D_X.Draw();
         hResponseTruth2D_X.GetYaxis()->SetTitle("dN/dp_{T}^{true}");
         hResponseTruth2D_X.GetYaxis()->SetTitleOffset(1.3);
+        //set y range
+        double maxY = hResponseTruth2D_X.GetMaximum();
+        double minY = hResponseTruth2D_X.GetMinimum();
+        hResponseTruth2D_X.GetYaxis()->SetRangeUser(0.1 * minY, 100 * maxY);
 
     } else {
         hRealDataCopyX.Draw();
@@ -2541,7 +2554,7 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
         hResponseTruth2D_Y.GetXaxis()->SetTitle(var+"^{, true}");
         hResponseTruth2D_Y.GetYaxis()->SetTitle("dN/d"+var+"^{, true}");
         hResponseTruth2D_Y.GetYaxis()->SetTitleOffset(1.3);
-        hResponseTruth2D_Y.Scale(1. * hRealDataCopyY.Integral("width") / hResponseTruth2D_Y.Integral("width"));
+        //hResponseTruth2D_Y.Scale(1. * hRealDataCopyY.Integral("width") / hResponseTruth2D_Y.Integral("width"));
     } else {
         hRealDataCopyY.Draw();
         //set x axis title
@@ -2553,6 +2566,7 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
 
     }
 
+ 
     //Right Down
     can->cd(4);
 
@@ -2592,6 +2606,9 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
         hUnfolded2DCopy_X[iter].GetYaxis()->SetTitle("dN/dp_{T,Jet}");
         hUnfolded2DCopy_Y[iter].SetMarkerStyle(27);
         hUnfolded2DCopy_Y[iter].GetYaxis()->SetTitle("dN/d" + var);
+        //offset
+        hUnfolded2DCopy_Y[iter].GetYaxis()->SetTitleOffset(1.2);
+        hUnfolded2DCopy_Y[iter].GetXaxis()->SetTitleOffset(1.2);
         hUnfolded2DCopy_Y[iter].GetXaxis()->SetTitle(var);
 
         leg1.AddEntry(&hUnfolded2DCopy_X[iter], Form("Iter%i", PlotIterations[iter]), "lep");
@@ -2604,8 +2621,16 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
 
  
         hUnfolded2DCopy_Y[iter].Draw(iter==0?"":"same");
-        if(iter == 0)        hRealDataCopyY.Draw("same");
+        if(iter == 0 && !ClosureTest) {
+            hRealDataCopyY.Draw("same");
+        leg2B.AddEntry(&hRealDataCopyY, "Real Data", "lp");
+        }
+        else if(iter == 0 && ClosureTest) {
+            hResponseTruth2D_Y.Draw("same");
+            leg2B.AddEntry(&hResponseTruth2D_Y, "Mc", "lp");
+        }
 
+        leg2B.AddEntry(&hUnfolded2DCopy_Y[iter], Form("Iter%i", PlotIterations[iter]), "lep");
 
         hBayRatiosNth_X[iter] = *(TH1D *) hUnfolded2DCopy_X[iter].Clone(
                 Form("hBayRatiosNth_X_%i_%i_", iter, iCent) + var);
@@ -2623,8 +2648,10 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
                 Form("hBayRatiosStep_Y_%i_%i_", iter, iCent) + var);
         hBayRatiosStep_Y[iter].GetYaxis()->SetTitle("Unfolded i-th/Unfolded (i-1)-th");
 
-
     }
+
+    can->cd(3);
+    leg2B.Draw("same");
 
     if (!ClosureTest) {
         Double_t Xmax = findMax(hUnfolded2DCopy_X, hRealDataCopyX.GetMaximum(), nIter);
@@ -3196,7 +3223,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
         }
 
         zAxis->SetTitle(var+" ^{,reco}");
-        zAxis->SetTitleOffset(-1.1);
+        zAxis->SetTitleOffset(-1.3);
         zAxis->SetTitleSize(0.03);
 
         for (int iz = 0; iz < nybinsZ; ++iz) {
@@ -3246,7 +3273,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
         }
 
         zAxisY->SetTitle(var + " ^{,true}");
-        zAxisY->SetTitleOffset(-1.3);
+        zAxisY->SetTitleOffset(-1.5);
         zAxisY->SetTitleSize(0.03);
 
         //přidám přes TLatex popisek k ose x
@@ -7722,10 +7749,10 @@ void ApplyOverrideMacro(const char* overrideMacro)
 void Machine(bool _fonllJet = true, bool _CutOfNegative = true, double _minJetPtRecoCut = -30,
              int _savedIter = 4,
              char *InputFileIn = 0,
-             const char *OutputFile = "Output",
+             const char *OutputFile = "Test",
              double _minPtD0Cut = 1, double _maxPtD0Cut = 10, //min not applied
              const char *OverrideMacro = "",
-             const char *ScanDir = "DefaultScanDir",
+             const char *ScanDir = "Test",
              int usePriorShapeWeighting = 0, //0 none, 1X JetpT, 2X second variable // X = 0 +20%; X = 1 -20%
              int systematicSPlot = 0)
 {

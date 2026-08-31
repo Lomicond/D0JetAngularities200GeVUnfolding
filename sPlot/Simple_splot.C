@@ -582,6 +582,7 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
             RooRealVar gRefMult("gRefMult", "gRefMult", 0, 10000);
             RooRealVar runId("runId", "runId", 15107008, 18167014);  runId.setBins(10000); // Rozsah runId, může být upraven podle potřeby
             RooRealVar rho("rho", "rho", 0, 1000);                          rho.setBins(100000); // Rozsah rho, může být upraven podle potřeby
+            RooRealVar rhoM("rhoM", "rhoM", 0, 1000);                          rhoM.setBins(100000); // Rozsah rho, může být upraven podle potřeby
             RooRealVar eventId("eventId", "eventId", 0, 10000000); eventId.setBins(10000); // Rozsah eventId, může být upraven podle potřeby
 
             gRefMult.setBins(10000); // Globální referenční multiplicita, může být použita pro další analýzy
@@ -649,6 +650,7 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
 
 		vars.add(runId);
 		vars.add(rho);
+		vars.add(rhoM);
 		vars.add(eventId);
 		vars.add(central);
 		vars.add(centralityAlt);
@@ -763,7 +765,7 @@ TTreeReaderValue<Int_t>   centralityValue(reader, "centrality");
 TTreeReaderValue<Int_t>   gRefMultValue(reader, "gRefMult");
 TTreeReaderValue<Int_t>   runIdValue(reader, "runId");
 TTreeReaderValue<Float_t> rhoValue(reader, "backgroundDensity");
-
+TTreeReaderValue<Float_t> rhoMValue(reader, "backgroundDensityM");
 TTreeReaderValue<Int_t>   eventIdValue(reader, "eventId");
 TTreeReaderValue<Float_t> centr_weight(reader, "weightCentrality");
 
@@ -825,6 +827,7 @@ TTreeReaderValue<Int_t>   nJetsInEventValue(reader, "nJetsInEvent");
                 //runid
                 runId.setVal(*runIdValue);
                 rho.setVal(*rhoValue);
+                rhoM.setVal(*rhoMValue);
                 eventId.setVal(*eventIdValue);
                 gRefMult.setVal(*gRefMultValue);
                 mass.setVal(*massValue);
@@ -1594,7 +1597,7 @@ void RenameTreeAndMerge(const char* FileInput, const char* FileOutput,
 
 
 
-    void Simple_splot(const char* InputFileIn = 0, const char* OutputFile = "Output", const char* OutputFile2 = "Output2", double minPtD0Cut =1, double maxPtD0Cut = 10, int systematicSPlot = 0)
+    void Simple_splot(const char* InputFileIn = 0, const char* OutputFile = "Output", const char* OutputFile2 = "Output2", double minPtD0Cut =5, double maxPtD0Cut = 10, int systematicSPlot = 0)
     {
 
     TString InputFile;     

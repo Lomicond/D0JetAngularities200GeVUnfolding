@@ -177,8 +177,8 @@ void assignTree(TTree *jetTree, StJetTreeStruct &mcJet, StJetTreeStruct &recoJet
     jetTree->SetBranchAddress("mcSmearedD0Eta", &recoJet.RecoD0Eta);
     jetTree->SetBranchAddress("mcSmearedJetEta", &recoJet.McRecoJetEta);
 */
- TString branchPrefix = "ICS_"; // "ICS_" or ""
-
+ //TString branchPrefix = "ICS_"; // "ICS_" or ""
+  TString branchPrefix = (Method == "ICS" ? "ICS_" : "");
     jetTree->SetBranchAddress(branchPrefix+"recoJetArea", &recoJet.recoJetArea);
     jetTree->SetBranchAddress(branchPrefix + "recoJetRho", &recoJet.recoJetRho);
 
