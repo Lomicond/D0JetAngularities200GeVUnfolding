@@ -576,7 +576,7 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
             RooRealVar pT("jetPt", "jetPt", pT_range[0], pT_range[1]);                pT.setBins(100);
             RooRealVar jetD0DeltaR("jetD0DeltaR", "jetD0DeltaR", 0, 200);                jetD0DeltaR.setBins(100);
             //RooRealVar jetNeutralPtFrac("jetNeutralPtFraction", "jetNeutralPtFraction", 0, 1);                jetNeutralPtFrac.setBins(100);
-            RooRealVar lam_1_0("lambda1_0", "lambda_1_0", 0, 1);                lam_1_0.setBins(100);
+            RooRealVar lam_1_0("lambda1_0", "lambda_1_0", 0.);                lam_1_0.setBins(100);
             RooRealVar nJetConst("nJetConst", "nJetConst", 0, 200);                nJetConst.setBins(100);
             RooRealVar nJetsInEvent("nJetsInEvent", "nJetsInEvent", 0, 200);                nJetsInEvent.setBins(100);
 
