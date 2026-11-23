@@ -91,9 +91,9 @@ d0_pt_range_label = D0_PT_RANGE_LABELS["1_10"]
 # Keep the same choices as in the old plotting script.
 lambdas_to_plot = [5, 1, 2, 3, 4]
 #lambdas_overlay = [5, 1, 2, 3, 4]
-lambdas_overlay = [5, 1, 4]
+lambdas_overlay = [5, 2, 4]
 rcp_lambdas_to_plot = [5, 1, 2, 3, 4]
-rcp_overlay_lambdas = [5, 1, 2, 3, 4]
+rcp_overlay_lambdas = [1, 3]
 
 # --- D0-pT range comparison panel ---
 # Columns are the 1-10 and 5-10 GeV/c D0-pT selections.  Rows are the selected
