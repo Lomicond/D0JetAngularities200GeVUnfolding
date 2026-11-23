@@ -55,3 +55,6 @@ __pycache__/
 
 # Editor lock files
 .~lock.*#
+
+# Experimental unfolding variants
+/Unfolding/Machine[0-9]*.C
