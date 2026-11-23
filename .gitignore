@@ -58,3 +58,6 @@ __pycache__/
 
 # Experimental unfolding variants
 /Unfolding/Machine[0-9]*.C
+
+# Local captured diff
+/Machine.C
