@@ -62,6 +62,12 @@ bool FillCacheRM = false; //Be carefoul!!!
 bool UseCachedRM = false;
 TString CacheRMFileName = "./Output/CacheRM";
 
+const Int_t nAngularities = 8;
+
+// Indices within the angularity/observable arrays.
+const Int_t iNConst = 6;
+const Int_t iLambda10 = 7;
+
 //Histograms
 TH1D Unfolded2D_X[7][3];
 TH1D Unfolded2D_Y[3];
@@ -120,7 +126,16 @@ TString DoubleCounting = "./Data/DoubleCounting2014.root";
 TString PaperD0Spectrum = "./Data/new/HEPData-ins1711377-v3-D^0_spectra_in_AuAu_collisions.root";
 
 
-const TString AngNames[6] = {"#lambda^{1}_{1}", "#lambda^{1}_{1.5}", "#lambda^{1}_{2}", "#lambda^{1}_{3}", "#lambda^{1}_{0.5}","p_{T}^{D}"};
+const TString AngNames[nAngularities] = {
+    "#lambda^{1}_{1}",
+    "#lambda^{1}_{1.5}",
+    "#lambda^{1}_{2}",
+    "#lambda^{1}_{3}",
+    "#lambda^{1}_{0.5}",
+    "p_{T}^{D}",
+    "N_{const}",
+    "#lambda^{1}_{0}"
+};
 
 const Double_t TruthJetPtMin = 1;
 const Double_t TruthJetPtMax = 20;
@@ -182,7 +197,6 @@ bool UseOverflow = false;
 double underflowplot = -35.;
 double overflowplot = 60.;
 const Int_t nCentralityBins = 3;
-const Int_t nAngularities = 6;
 double NumberOfWEvents[nCentralityBins] = {1.0, 1.0, 1.0};
 vector<Double_t> ptMcBinsVec[nCentralityBins];
 vector<Double_t> pTMcBinsVecTest[nCentralityBins];
@@ -359,7 +373,9 @@ vector<Double_t> angMcBinsVecCustom[nCentralityBins][nAngularities] = {
                 {-0.0001,0.0001, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 1}, //l12
                 {-0.0001,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.075, 0.1, 0.15, 0.2, 1}, //l13
                 {-0.0001,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7,0.8, 1}, //l10.5
-                {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01} //pTD
+                {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01}, //pTD
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10
 
         },
         {//Centrality 10-40%
@@ -369,6 +385,8 @@ vector<Double_t> angMcBinsVecCustom[nCentralityBins][nAngularities] = {
                 {-0.0001,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.075, 0.1, 0.15, 0.2, 1}, //l13
                 {-0.0001,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1}, //l10.5
                 {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01} //pTD
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10                
         },
         {//Centrality 40-80%
                 {-0.0001,0.0001, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3,0.4,0.5, 1}, //l11
@@ -377,6 +395,8 @@ vector<Double_t> angMcBinsVecCustom[nCentralityBins][nAngularities] = {
                 {-0.0001,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.075, 0.1, 0.15, 0.2, 1}, //l13
                 {-0.0001,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1}, //l10.5
                 {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01} //pTD
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10                
         }
         
 /*
@@ -513,6 +533,8 @@ vector<Double_t> angRecoBinsVec[nCentralityBins][nAngularities] = {
                 {0,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.0625, 0.075, 0.175, 0.475, 1}, //l13
                 {0,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,0.7, 0.8, 1}, //l10.5
                 {0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.01} //pTD
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10
 
         },
         {//Centrality 10-40%
@@ -522,7 +544,8 @@ vector<Double_t> angRecoBinsVec[nCentralityBins][nAngularities] = {
                 {0,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.0625, 0.1625, 0.2625, 0.4625, 0.8}, //l13
                 {0,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,0.7, 0.8, 1}, 
                 {0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.01}
-
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10
         },
         {//Centrality 40-80%
                 {0,0.0001, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1}, //l11
@@ -531,6 +554,8 @@ vector<Double_t> angRecoBinsVec[nCentralityBins][nAngularities] = {
                 {0,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.0625, 0.1625, 0.2625, 0.4625, 0.8}, //l13
                 {0,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,0.7, 0.8, 1}, 
                 {0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.01}
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10
 
 
         },
