@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# -------------------------
+# D0 pT range for Machine()
+# -------------------------
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 MIN_PT_D0 MAX_PT_D0"
+  echo "Example: $0 5 10"
+  exit 1
+fi
+
+MIN_PT_D0="$1"
+MAX_PT_D0="$2"
+
+if ! [[ "${MIN_PT_D0}" =~ ^[0-9]+$ && "${MAX_PT_D0}" =~ ^[0-9]+$ ]]; then
+  echo "[error] MIN_PT_D0 and MAX_PT_D0 must be integers."
+  exit 1
+fi
+
+if (( MIN_PT_D0 >= MAX_PT_D0 )); then
+  echo "[error] MIN_PT_D0 must be smaller than MAX_PT_D0."
+  exit 1
+fi
+
 # ============================================================
 # Binning systematic scan: lambda_2^1 / l12
 #
@@ -42,15 +64,17 @@ INPUT_FILE="${PROJECT_DIR}/Data/Output_real_final_01022026.root"
 # All other binnings stay exactly as defined in config.h/config_hist.h.
 L12_INDEX=2
 
-L12_TRUE_MAX_LIST=(0.4 0.6 0.8 1.0)
-L12_RECO_MAX_LIST=(0.4 0.6 0.8 1.0)
+#L12_TRUE_MAX_LIST=(0.4 0.6 0.8 1.0)
+#L12_RECO_MAX_LIST=(0.4 0.6 0.8 1.0)
+L12_TRUE_MAX_LIST=(1.0)
+L12_RECO_MAX_LIST=(1.0)
 L12_DENSE_BIN_COUNTS=(4 5 6)
 L12_MIN_WIDTH=0.025
 L12_TAIL_WIDTHS=(0.1 0.2 0.3 0.4)
 L12_TRUE_N_BINS=8
 
 # Edge nudging.
-# Use the same controlled edge shift as for the previous angularities: 0.005.
+# Use the same controlled edge shift as for the previous angularities: 0.0025.
 # The shift is applied coherently to internal reco edges.
 # The first and last edges remain fixed.
 L12_EDGE_SHIFTS=(0 -0.0025 0.0025)
@@ -66,8 +90,6 @@ FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
 SAVED_ITER=4
-MIN_PT_D0=1
-MAX_PT_D0=10
 USE_PRIOR_SHAPE_WEIGHTING=0
 SYSTEMATIC_SPLOT=0
 
@@ -77,13 +99,17 @@ MAX_TOTAL_RUNS=0
 # -------------------------
 # Output location
 # -------------------------
-SCAN_DIR="${SCRIPT_DIR}/scanL12"
+SCAN_DIR="${SCRIPT_DIR}/scanL12_${MIN_PT_D0}_${MAX_PT_D0}"
 OVR_DIR="${SCAN_DIR}/overrides"
 RUN_DIR="${SCAN_DIR}/runs"
 SUMMARY="${SCAN_DIR}/summary.tsv"
 STABILITY="${SCAN_DIR}/stability.tsv"
 
-mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
+mkdir -p \
+  "${OVR_DIR}" \
+  "${RUN_DIR}" \
+  "${SCAN_DIR}/Output" \
+  "${PROJECT_DIR}/OutputPdf"
 
 # =========================
 # Helper functions
@@ -227,6 +253,12 @@ for L12_RECO_MAX in "${L12_RECO_MAX_LIST[@]}"; do
 
   // lambda_2^1 / l12 scan only, index ${L12_INDEX}.
   // All other binning variables stay exactly as defined in config.h/config_hist.h.
+  
+  // Binning systematic: reconstruct the response from the fine cache.
+  // Jet-pT and all other observable binnings stay nominal from config.h.
+  UseCachedRM = true;
+  FillStandardRM = false;
+  FillCacheRM = false;
 
   double reco_edges[] = { ${L12_RECO_EDGES} };
   int nReco = (int)(sizeof(reco_edges)/sizeof(double));

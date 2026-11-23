@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# -------------------------
+# D0 pT range for Machine()
+# -------------------------
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 MIN_PT_D0 MAX_PT_D0"
+  echo "Example: $0 5 10"
+  exit 1
+fi
+
+MIN_PT_D0="$1"
+MAX_PT_D0="$2"
+
+if ! [[ "${MIN_PT_D0}" =~ ^[0-9]+$ && "${MAX_PT_D0}" =~ ^[0-9]+$ ]]; then
+  echo "[error] MIN_PT_D0 and MAX_PT_D0 must be integers."
+  exit 1
+fi
+
+if (( MIN_PT_D0 >= MAX_PT_D0 )); then
+  echo "[error] MIN_PT_D0 must be smaller than MAX_PT_D0."
+  exit 1
+fi
+
 # ============================================================
 # Binning systematic scan: z
 #
@@ -8,7 +30,7 @@ set -euo pipefail
 #   config.h, config_hist.h, Unfolding/Machine.C, Data/...
 #
 # Recommended run command:
-#   bash Systematics/Binning/02_BinningZ.sh
+#   ./Systematics/Binning/02_BinningZ.sh 5 10
 # ============================================================
 
 # -------------------------
@@ -35,8 +57,10 @@ INPUT_FILE="${PROJECT_DIR}/Data/Output_real_final_01022026.root"
 # -------------------------
 # z scan
 # -------------------------
-Z_TRUE_START_LIST=(0 0.2 0.4)
-Z_RECO_START_LIST=(0 0.2 0.4)
+#Z_TRUE_START_LIST=(0 0.2 0.4)
+Z_TRUE_START_LIST=(0)
+#Z_RECO_START_LIST=(0 0.2 0.4)
+Z_RECO_START_LIST=(0)
 
 # True-level z edges are obtained by taking a suffix of this baseline list.
 Z_TRUE_BASE_EDGES=(0 0.2 0.4 0.6 0.7 0.8 0.9 1.01)
@@ -76,8 +100,6 @@ FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
 SAVED_ITER=4
-MIN_PT_D0=1
-MAX_PT_D0=10
 USE_PRIOR_SHAPE_WEIGHTING=0
 SYSTEMATIC_SPLOT=0
 
@@ -87,12 +109,16 @@ MAX_TOTAL_RUNS=0
 # -------------------------
 # Output location
 # -------------------------
-SCAN_DIR="${SCRIPT_DIR}/scanZ"
+SCAN_DIR="${SCRIPT_DIR}/scanZ_${MIN_PT_D0}_${MAX_PT_D0}"
 OVR_DIR="${SCAN_DIR}/overrides"
 RUN_DIR="${SCAN_DIR}/runs"
 SUMMARY="${SCAN_DIR}/summary.tsv"
 
-mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
+mkdir -p \
+  "${OVR_DIR}" \
+  "${RUN_DIR}" \
+  "${SCAN_DIR}/Output" \
+  "${PROJECT_DIR}/OutputPdf"
 
 # =========================
 # Helper functions
@@ -179,6 +205,12 @@ while IFS=$'\t' read -r Z_TRUE_START Z_TRUE_N_BINS Z_RECO_START Z_RECO_N_BINS Z_
   cout << "[override] z reco edges: ${Z_RECO_EDGES}" << endl;
   cout << "[override] z true edges: ${Z_TRUE_EDGES}" << endl;
   cout << "[override] z nudge mode: ${Z_NUDGE_MODE}" << endl;
+
+  // Binning systematic: reconstruct the response from the fine cache.
+  // Jet-pT binning stays nominal from config.h.
+  UseCachedRM = true;
+  FillStandardRM = false;
+  FillCacheRM = false;
 
   for (int ic = 0; ic < nCentralityBins; ++ic) zRecoBinsVec[ic].clear();
   double z_reco_edges[] = { ${Z_RECO_EDGES} };

@@ -575,7 +575,8 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
             RooRealVar jetArea("jetArea", "jetArea", -10, 10);                jetArea.setBins(100);
             RooRealVar pT("jetPt", "jetPt", pT_range[0], pT_range[1]);                pT.setBins(100);
             RooRealVar jetD0DeltaR("jetD0DeltaR", "jetD0DeltaR", 0, 200);                jetD0DeltaR.setBins(100);
-            RooRealVar jetNeutralPtFrac("jetNeutralPtFraction", "jetNeutralPtFraction", 0, 1);                jetNeutralPtFrac.setBins(100);
+            //RooRealVar jetNeutralPtFrac("jetNeutralPtFraction", "jetNeutralPtFraction", 0, 1);                jetNeutralPtFrac.setBins(100);
+            RooRealVar lam_1_0("lambda1_0", "lambda_1_0", 0, 1);                lam_1_0.setBins(100);
             RooRealVar nJetConst("nJetConst", "nJetConst", 0, 200);                nJetConst.setBins(100);
             RooRealVar nJetsInEvent("nJetsInEvent", "nJetsInEvent", 0, 200);                nJetsInEvent.setBins(100);
 
@@ -632,7 +633,7 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
                            jetRapidity,
                            jetArea,
                            jetD0DeltaR,
-                           jetNeutralPtFrac,
+                           lam_1_0,
                            nJetConst,
                            nJetsInEvent,
                            lam_1_0half,
@@ -666,7 +667,7 @@ void splot(const char* FileInput, const char* FileOutput, double D0_pt_min, doub
 		vars.add(jetRapidity);
 		vars.add(jetArea);
 		vars.add(jetD0DeltaR);
-		vars.add(jetNeutralPtFrac);
+		vars.add(lam_1_0);
 		vars.add(nJetConst);
 		vars.add(nJetsInEvent);
 		vars.add(lam_1_0half);
@@ -740,7 +741,7 @@ LoadEfficiency1DCut();
 // --- persistentní názvy větví s prefixem ---
 const TString brZ               = branchPrefix + "z";
 const TString brJetPtCorr       = branchPrefix + "jetPt" + (branchPrefix == "ICS_" ? "" : "Corr");
-const TString brJetNeutralPtFrac= branchPrefix + "jetNeutralPtFrac";
+const TString brlam_1_0         = branchPrefix + "lambda1_0";
 
 const TString brLam11           = branchPrefix + "lambda1_1";
 const TString brLam115          = branchPrefix + "lambda1_1_5";
@@ -771,7 +772,7 @@ TTreeReaderValue<Int_t>   eventIdValue(reader, "eventId");
 TTreeReaderValue<Float_t> centr_weight(reader, "weightCentrality");
 
 TTreeReaderValue<Float_t> JetPtValue(reader, brJetPtCorr.Data());
-TTreeReaderValue<Float_t> NpTfraction(reader, brJetNeutralPtFrac.Data());
+//TTreeReaderValue<Float_t> lam0Vakue(reader, brlam_1_0.Data());
 
 // Lambda observables
 TTreeReaderValue<Float_t> lam1Value(reader,     brLam11.Data());
@@ -793,7 +794,7 @@ TTreeReaderValue<Float_t> jetPhiValue(reader, brJetPhi.Data());
 TTreeReaderValue<Float_t> jetRapidityValue(reader, brJetRapidity.Data());
 TTreeReaderValue<Float_t> jetAreaValue(reader, brJetArea.Data());
 TTreeReaderValue<Float_t> jetD0DeltaRValue(reader, brJetD0DeltaR.Data());
-TTreeReaderValue<Float_t> jetNeutralPtFracValue(reader, brJetNeutralPtFrac.Data());
+TTreeReaderValue<Float_t> lam_1_0Value(reader, brlam_1_0.Data());
 TTreeReaderValue<Int_t>   nJetConstValue(reader, brNJetConst.Data());
 TTreeReaderValue<Int_t>   nJetsInEventValue(reader, "nJetsInEvent");
 
@@ -812,7 +813,7 @@ TTreeReaderValue<Int_t>   nJetsInEventValue(reader, "nJetsInEvent");
                 if (*centralityValue < (*it_centrality)[0] || *centralityValue > (*it_centrality)[1])                     continue;
                 if (*D0_ptValue < (*it_momenta)[0] || *D0_ptValue > (*it_momenta)[1]) continue;  // TODO: vrátit zpět
                 if (setJets && fabs(*jetEtaValue) > 0.6)                                 continue;          // TODO: potvrdit, že má zůstat
-                if (setJets && *NpTfraction>0.95) continue;
+                //if (setJets && *NpTfraction>0.95) continue;
                 if (abs(*D0_rap2) > 0.6) continue; 
                // if (setJets && abs(*d0Eta)>1) continue; //DELETE
 
@@ -847,7 +848,7 @@ TTreeReaderValue<Int_t>   nJetsInEventValue(reader, "nJetsInEvent");
                 jetRapidity.setVal(*jetRapidityValue);
                 jetArea.setVal(*jetAreaValue);
                 jetD0DeltaR.setVal(*jetD0DeltaRValue);
-                jetNeutralPtFrac.setVal(*jetNeutralPtFracValue);
+                lam_1_0.setVal(*lam_1_0Value);
                 nJetConst.setVal(*nJetConstValue);
                 nJetsInEvent.setVal(*nJetsInEventValue);
 
@@ -1653,57 +1654,54 @@ void RenameTreeAndMerge(const char* FileInput, const char* FileOutput,
         sys = "_jetRecEfficiency";
         RealJetsFileData = "./Data/Output_real_final_01022026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_trackEff_05052026.root"; 
     }
     if (_systematicSPlot == 22){
         sys = "_jetnHitsFit13";
         RealJetsFileData = "./Data/Output_ana_MidLow_nHitsFit13_12052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_nHitsFit13_06052026.root"; 
     }
     if (_systematicSPlot == 23){
         sys = "_jetnHitsFit17";
-        RealJetsFileData = "./Data/Output_real_final_01022026.root";
+        RealJetsFileData = "./Data/Output_ana_MidLow_nHitsFit17_15052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_nHitsFit17_06052026.root"; 
     }
     if (_systematicSPlot == 24){
         sys = "_jetKTDrop";
         RealJetsFileData = "./Data/Output_ana_MidLow_kTDrop_12052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_kTDrop_07052026.root"; 
     }
     if (_systematicSPlot == 25){
         sys = "_jetDCA2_8";
-        RealJetsFileData = "./Data/Output_real_final_01022026.root";
+        RealJetsFileData = "./Data/Output_ana_MidLow_DCA2_8_14052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_DCA2_8_09052026.root"; 
     }
     if (_systematicSPlot == 26){
         sys = "_jetDCA3_2";
-        RealJetsFileData = "./Data/Output_real_final_01022026.root";
+        RealJetsFileData = "./Data/Output_ana_MidLow_DCA3_2_14052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_DCA3_2_10052026.root"; 
     }
     if (_systematicSPlot == 27){
         sys = "_jetHadronicCorr";
-        RealJetsFileData = "./Data/Output_real_final_01022026.root";
+        RealJetsFileData = "./Data/Output_ana_MidLow_hadrCorr_15052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_hadrCorr_08052026.root"; 
     }
 
     splot(InputFile, outRoot+"_ICS"+sys, minPtD0Cut, maxPtD0Cut,"z",centralityRange, centrality, momenta, true, "ICS");
     RenameTreeAndMerge(OutputFile, OutputFile2, centralityRange, centrality,"_ICS",sys);
 
-    splot(InputFile, outRoot+"_AREA"+sys, minPtD0Cut, maxPtD0Cut,"z",centralityRange, centrality, momenta, true, "AREA");
-    RenameTreeAndMerge(OutputFile, OutputFile2, centralityRange, centrality,"_AREA",sys);
-
-
-
-    //přidám _D0 k outRoot
+    //For SEAM method
+    //splot(InputFile, outRoot+"_AREA"+sys, minPtD0Cut, maxPtD0Cut,"z",centralityRange, centrality, momenta, true, "AREA");
+    //RenameTreeAndMerge(OutputFile, OutputFile2, centralityRange, centrality,"_AREA",sys);
 
     outRoot += "_D0";
-    splot(InputFile, outRoot+sys, minPtD0Cut, maxPtD0Cut,"z",centralityRange, centrality, momenta, false, "");
+    splot(InputFile, outRoot+sys, minPtD0Cut, maxPtD0Cut,"z",centralityRange, centrality, momenta, false, "ICS");
     RenameTreeAndMerge(OutputFile, OutputFile2, centralityRange, centrality,"",sys);
 
         std::cout << "Hard exit" << std::endl;

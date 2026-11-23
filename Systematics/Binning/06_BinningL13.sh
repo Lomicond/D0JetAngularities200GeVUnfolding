@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# -------------------------
+# D0 pT range for Machine()
+# -------------------------
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 MIN_PT_D0 MAX_PT_D0"
+  echo "Example: $0 5 10"
+  exit 1
+fi
+
+MIN_PT_D0="$1"
+MAX_PT_D0="$2"
+
+if ! [[ "${MIN_PT_D0}" =~ ^[0-9]+$ && "${MAX_PT_D0}" =~ ^[0-9]+$ ]]; then
+  echo "[error] MIN_PT_D0 and MAX_PT_D0 must be integers."
+  exit 1
+fi
+
+if (( MIN_PT_D0 >= MAX_PT_D0 )); then
+  echo "[error] MIN_PT_D0 must be smaller than MAX_PT_D0."
+  exit 1
+fi
+
 # ============================================================
 # Binning systematic scan: lambda_3^1 / l13
 #
@@ -42,8 +64,10 @@ INPUT_FILE="${PROJECT_DIR}/Data/Output_real_final_01022026.root"
 # All other binnings stay exactly as defined in config.h/config_hist.h.
 L13_INDEX=3
 
-L13_TRUE_MAX_LIST=(0.4 0.6 0.8 1.0)
-L13_RECO_MAX_LIST=(0.4 0.6 0.8 1.0)
+#L13_TRUE_MAX_LIST=(0.4 0.6 0.8 1.0)
+#L13_RECO_MAX_LIST=(0.4 0.6 0.8 1.0)
+L13_TRUE_MAX_LIST=(1.0)
+L13_RECO_MAX_LIST=(1.0)
 L13_DENSE_BIN_COUNTS=(4 5 6)
 L13_MIN_WIDTH=0.0125
 L13_TAIL_WIDTHS=(0.1 0.2 0.3 0.4)
@@ -66,8 +90,6 @@ FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
 SAVED_ITER=4
-MIN_PT_D0=1
-MAX_PT_D0=10
 USE_PRIOR_SHAPE_WEIGHTING=0
 SYSTEMATIC_SPLOT=0
 
@@ -77,13 +99,17 @@ MAX_TOTAL_RUNS=0
 # -------------------------
 # Output location
 # -------------------------
-SCAN_DIR="${SCRIPT_DIR}/scanL13"
+SCAN_DIR="${SCRIPT_DIR}/scanL13_${MIN_PT_D0}_${MAX_PT_D0}"
 OVR_DIR="${SCAN_DIR}/overrides"
 RUN_DIR="${SCAN_DIR}/runs"
 SUMMARY="${SCAN_DIR}/summary.tsv"
 STABILITY="${SCAN_DIR}/stability.tsv"
 
-mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
+mkdir -p \
+  "${OVR_DIR}" \
+  "${RUN_DIR}" \
+  "${SCAN_DIR}/Output" \
+  "${PROJECT_DIR}/OutputPdf"
 
 # =========================
 # Helper functions
@@ -227,7 +253,11 @@ for L13_RECO_MAX in "${L13_RECO_MAX_LIST[@]}"; do
 
   // lambda_3^1 / l13 scan only, index ${L13_INDEX}.
   // All other binning variables stay exactly as defined in config.h/config_hist.h.
-
+  
+  UseCachedRM = true;
+  FillStandardRM = false;
+  FillCacheRM = false;
+  
   double reco_edges[] = { ${L13_RECO_EDGES} };
   int nReco = (int)(sizeof(reco_edges)/sizeof(double));
   for (int ic = 0; ic < nCentralityBins; ++ic) {

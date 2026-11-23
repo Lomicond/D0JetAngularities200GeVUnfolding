@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# -------------------------
+# D0 pT range for Machine()
+# -------------------------
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 MIN_PT_D0 MAX_PT_D0"
+  echo "Example: $0 5 10"
+  exit 1
+fi
+
+MIN_PT_D0="$1"
+MAX_PT_D0="$2"
+
+if ! [[ "${MIN_PT_D0}" =~ ^[0-9]+$ && "${MAX_PT_D0}" =~ ^[0-9]+$ ]]; then
+  echo "[error] MIN_PT_D0 and MAX_PT_D0 must be integers."
+  exit 1
+fi
+
+if (( MIN_PT_D0 >= MAX_PT_D0 )); then
+  echo "[error] MIN_PT_D0 must be smaller than MAX_PT_D0."
+  exit 1
+fi
+
 # ============================================================
 # Prior-shape systematic scan
 #
@@ -8,7 +30,7 @@ set -euo pipefail
 #   config.h, config_hist.h, Unfolding/Machine.C, Data/...
 #
 # Recommended run command:
-#   bash Systematics/PriorShape/AllIn_priorShape_secondVar_compatV3.sh
+#   ./Systematics/PriorShape/01_PriorShape.sh 5 10
 # ============================================================
 
 # -------------------------
@@ -58,8 +80,6 @@ FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
 SAVED_ITER=4
-MIN_PT_D0=1
-MAX_PT_D0=10
 SYSTEMATIC_SPLOT=0
 
 # Safety limit for the whole scan. 0 = no limit.
@@ -68,13 +88,17 @@ MAX_TOTAL_RUNS=0
 # -------------------------
 # Output location
 # -------------------------
-SCAN_DIR="${SCRIPT_DIR}/scanPriorShape"
+SCAN_DIR="${SCRIPT_DIR}/scanPriorShape_${MIN_PT_D0}_${MAX_PT_D0}"
 OVR_DIR="${SCAN_DIR}/overrides"
 RUN_DIR="${SCAN_DIR}/runs"
 SUMMARY="${SCAN_DIR}/summary.tsv"
 STABILITY="${SCAN_DIR}/stability.tsv"
 
-mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
+mkdir -p \
+  "${OVR_DIR}" \
+  "${RUN_DIR}" \
+  "${SCAN_DIR}/Output" \
+  "${PROJECT_DIR}/OutputPdf"
 
 # =========================
 # Helper functions
@@ -130,6 +154,7 @@ ACLIC_SUFFIX="++"
 
 for USE_PRIOR in "${PRIOR_CODES[@]}"; do
   ((run_counter += 1))
+  echo "========== Prior-shape scan: D0 pT ${MIN_PT_D0}-${MAX_PT_D0} GeV/c =========="
   printf -v RUN_ID "r%06d" "${run_counter}"
 
   LABEL="$(prior_label "${USE_PRIOR}")"

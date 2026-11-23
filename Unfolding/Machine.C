@@ -18,6 +18,11 @@
 #include <algorithm>
 #include <string>
 
+#include <memory>
+#include <stdexcept>
+#include <cmath>
+#include "TDirectory.h"
+
 using namespace std;
 
 #ifndef __CINT__
@@ -78,6 +83,38 @@ map <Int_t, Int_t> centralityMap = {
         {2, 2}, // 2->  60-70%
         {1, 2}  // 1->  70-80%
 };
+
+TFile *gPdfCanvasFile = nullptr;
+Int_t gPdfCanvasPage = 0;
+
+
+// Save one page to the normal multipage PDF and, optionally,
+// store exactly the same TCanvas in a ROOT file.
+void SavePdfPage(TCanvas *can)
+{
+    if (!can) return;
+
+    // Make sure all pads/painted objects are up to date.
+    can->Modified();
+    can->Update();
+
+    // Existing PDF output.
+    can->SaveAs(outPdf);
+
+    // Optional ROOT copy of exactly this PDF page.
+    if (SavePdfCanvases && gPdfCanvasFile) {
+        ++gPdfCanvasPage;
+
+        TString keyName = Form("page_%04d", gPdfCanvasPage);
+
+        // WriteTObject writes the canvas without changing gDirectory.
+        gPdfCanvasFile->WriteTObject(
+            can,
+            keyName.Data(),
+            "Overwrite"
+        );
+    }
+}
 
 vector <Double_t> getAxisVector(TAxis *axis) {
     vector <Double_t> axisVector;
@@ -227,6 +264,20 @@ void DrawVectorBlock(TLatex& latex, double x, double& y,
     }
 
     y -= extraGap;
+}
+// střed truth binu, do kterého x padne; -999 pokud je x mimo osu
+double TruthBinCenter(const vector<Double_t>& edges, double x)
+{
+  if (x < edges.front() || x >= edges.back()) return -999.;
+  int i = std::upper_bound(edges.begin(), edges.end(), x) - edges.begin() - 1;
+  return 0.5 * (edges[i] + edges[i+1]);
+}
+double GetPtTiltWeight(double jetPt, int iCent = 2)   // 2 = 40-80%
+{
+  double ptC = TruthBinCenter(ptMcBinsVecCustom[iCent], jetPt);
+  if (ptC < 0) return 1.0;                            // mimo truth osu: váha 1
+  double L = std::log(ptC / 8.0);
+  return std::exp(-11.6 * L - 4.6 * L * L);
 }
 
 bool NearlyEqual(double a, double b, double eps = 1e-9)
@@ -1741,6 +1792,10 @@ void plotComparison1D(TCanvas *can, const Int_t &iCent){
     TH1D hResponseReco = *((TH1D *)hResponse1D.ProjectionX()->Clone(Form("hResponseReco_%i", iCent)));
     TH1D hResponseTruth = *((TH1D *)hResponse1D.ProjectionY()->Clone(Form("hResponseTrue_%i", iCent)));
     TH1D hResponseTruthNoFakes = *((TH1D*) rurResponse[iCent].Htruth()->Clone(Form("hTrueResponseTrue_%i", iCent)));
+    if (ClosureTest && crossClosure) {
+    hResponseTruth = *hCrossTruthPt[iCent];
+    hResponseTruthNoFakes = *hCrossTruthPt[iCent];
+    }
 
     NormalizeByBinWidth(&hRealDataPtCopy, 2001);
     NormalizeByBinWidth(&hResponseReco, 2002);
@@ -2016,7 +2071,7 @@ void plotComparison1D(TCanvas *can, const Int_t &iCent){
     can->cd();
 
     DrawTextAbove(0);
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
 
     double UnfoldedToMc = 0;
     if (ClosureTest||true){
@@ -2038,7 +2093,7 @@ void plotComparison1D(TCanvas *can, const Int_t &iCent){
 
         for (int iter = 0; iter < nIter; iter++) {
             hUnfoldeToMc[iter] = *((TH1D *) hUnfoldedPtCopy[iter].Clone(Form("hUnfoldeToMc_%i_%i", iter, iCent)));
-            hUnfoldeToMc[iter].Scale(1. * hResponseTruthNoFakes.Integral("width") / hUnfoldeToMc[iter].Integral("width"));
+            if (!(ClosureTest && crossClosure)) hUnfoldeToMc[iter].Scale(1. * hResponseTruthNoFakes.Integral("width") / hUnfoldeToMc[iter].Integral("width"));
             hUnfoldeToMc[iter].Divide(&hResponseTruthNoFakes);
             hUnfoldeToMc[iter].SetName(Form("hUnfoldeToMc_%i_%i", iter, iCent));
             hUnfoldeToMc[iter].GetYaxis()->SetTitle("Unfolded/MC true");
@@ -2058,7 +2113,7 @@ void plotComparison1D(TCanvas *can, const Int_t &iCent){
 
         DrawTextAbove(0);
         DrawLineOne();
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
     }
 
@@ -2199,7 +2254,7 @@ void plotComparison1D(TCanvas *can, const Int_t &iCent){
 
         DrawTextAbove(0);
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
         can->Clear();
 
     }
@@ -2267,7 +2322,7 @@ void plotComparison1D(TCanvas *can, const Int_t &iCent){
 
         can->cd();
         DrawTextAbove(0);
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
     }
 
@@ -2354,7 +2409,7 @@ void plotComparison1D(TCanvas *can, const Int_t &iCent){
         hChiSquaredNdf.GetYaxis()->SetTitle("#chi^{2}/ndf = #frac{1}{N} #sum_{i}^{N} #frac{(Data_{i} - Backfolded_{i})^{2}}{Error_{i}^{2}}");
         hChiSquaredNdf.GetYaxis()->SetTitleOffset(1.6);
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
         can->Clear();
     }
 
@@ -2403,7 +2458,7 @@ void plotComparison1D(TCanvas *can, const Int_t &iCent){
         hMissesPct->SetMaximum(1.0);
         hMissesPct->Draw("hist");
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
         can->Clear();
 
         delete hTruth;
@@ -2471,6 +2526,9 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
     hResponseReco2D.GetYaxis()->SetTitle(var+" ^{,reco}");
     TH2D hResponseTruth2D = *(TH2D *) rurResponse2D[iCent][variable].Htruth()->Clone(
             Form("hResponseTruth2D_%i_%i", iCent, variable));
+    if (ClosureTest && crossClosure) {
+        hResponseTruth2D = *hCrossTruth2D[iCent][variable];
+    }
     hResponseTruth2D.GetXaxis()->SetTitle("p_{T,Jet}^{true} [GeV/c]");
     hResponseTruth2D.GetYaxis()->SetTitle(var+" ^{,true}");
 
@@ -2856,7 +2914,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
 
     tex.DrawLatex(0.38, 0.48, "(p_{T}, " + var + ") " + centralityTitles[iCent]);
 
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
     can->Clear();
     gPad->SetLogz(0);
 
@@ -2891,7 +2949,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
     }
 
 
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
     can->Clear();
 
     //Distributions Real vs Mc
@@ -2951,14 +3009,14 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
             hUnfoldeToMc_X[iter] = *(TH1D *) hUnfolded2DCopy_X[iter].Clone(
                     Form("hUnfoldeToMc_X_%i_%i", iter, iCent) + var);
             hUnfoldeToMc_X[iter].Divide(&hResponseTruth2D_X);
-            hUnfoldeToMc_X[iter].Scale(1./hUnfolded2DCopy_X[iter].Integral()*hResponseTruth2D_X.Integral());
+            if (!(ClosureTest && crossClosure)) hUnfoldeToMc_X[iter].Scale(1./hUnfolded2DCopy_X[iter].Integral()*hResponseTruth2D_X.Integral());
             hUnfoldeToMc_X[iter].GetYaxis()->SetTitle("Unfolded/MC True");
             hUnfoldeToMc_X[iter].GetXaxis()->SetTitle("p_{T,Jet} [GeV/c]");
             hUnfoldeToMc_X[iter].GetYaxis()->SetTitleOffset(1.5);
             hUnfoldeToMc_X[iter].Draw(iter == 0 ? "" : "same");
             hUnfoldeToMc_X[iter].GetYaxis()->SetRangeUser(0.5,1.5);
 
-            if(iter == 5) UnfoldedToMc_x = ComputeTVShapeDistance(hUnfolded2DCopy_X[5], hResponseTruth2D_X, 5.0, 20.0);
+            if (iter == nIter - 1)  UnfoldedToMc_x = ComputeTVShapeDistance(hUnfolded2DCopy_X[iter], hResponseTruth2D_X, 5.0, 20.0);
         }
 
 
@@ -2972,7 +3030,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
             hUnfoldeToMc_Y[iter] = *(TH1D *) hUnfolded2DCopy_Y[iter].Clone(
                     Form("hUnfoldeToMc_Y_%i_%i", iter, iCent) + var);
             hUnfoldeToMc_Y[iter].Divide(&hResponseTruth2D_Y);
-            hUnfoldeToMc_Y[iter].Scale(1./hUnfolded2DCopy_Y[iter].Integral()*hResponseTruth2D_Y.Integral());
+            if (!(ClosureTest && crossClosure))hUnfoldeToMc_Y[iter].Scale(1./hUnfolded2DCopy_Y[iter].Integral()*hResponseTruth2D_Y.Integral());
             hUnfoldeToMc_Y[iter].GetYaxis()->SetTitle("Unfolded/Mc true");
             hUnfoldeToMc_Y[iter].GetXaxis()->SetTitle(var);
             hUnfoldeToMc_Y[iter].GetYaxis()->SetTitleOffset(1.5);
@@ -2980,7 +3038,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
             hUnfoldeToMc_Y[iter].Draw(iter == 0 ? "" : "same");
             hUnfoldeToMc_Y[iter].GetYaxis()->SetRangeUser(0.5,1.5);
 
-            if(iter == 5) UnfoldedToMc_y = ComputeTVShapeDistance(hUnfolded2DCopy_Y[5], hResponseTruth2D_Y);
+            if (iter == nIter - 1)  UnfoldedToMc_y = ComputeTVShapeDistance(hUnfolded2DCopy_Y[iter], hResponseTruth2D_Y);
         }
         DrawLineOne2(hUnfoldeToMc_Y[0].GetXaxis()->GetBinLowEdge(1),
                      hUnfoldeToMc_Y[0].GetXaxis()->GetBinLowEdge(hUnfoldeToMc_Y[0].GetNbinsX() + 1));
@@ -3016,7 +3074,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
      << UnfoldedToMc_y * 100
      << "\n";
 
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
 
     can->Clear();
     can->SetCanvasSize(1200, 1000);
@@ -3067,7 +3125,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
         can->cd();
         texA.DrawLatex(0.5, 0.49, "(p_{T}, " + var + ") " + centralityTitles[iCent]);
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
         can->Clear();
 
         can->Divide(2, 2);
@@ -3111,7 +3169,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
         can->cd();
         texA.DrawLatex(0.5, 0.49, "(p_{T}, " + var + ") " + centralityTitles[iCent]);
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
     }
 
@@ -3286,7 +3344,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
 
         tex.DrawLatex(0.15, 0.9, "4D Response matrix " + centralityTitles[iCent] + " (p_{T,Jet}, " + var + ")");
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
 
 
@@ -3387,7 +3445,7 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
         can->cd();
         latex.DrawLatex(0.5,0.92,var + " " + centralityTitles[iCent]);
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
         can->Clear();
 
         delete hFakes;
@@ -3504,6 +3562,8 @@ void plotComparison(TCanvas *can, RooUnfoldResponse *hResponse, RooUnfoldRespons
     TH1D *hhResponseTruth = (TH1D *) hhResponseRebinned->ProjectionY(
             TString("hhResponseTruth_") + Form("_%i_%i", iCent, iSuper))->Clone(
             TString("Clone_hhResponseTruth_") + Form("_%i_%i", iCent, iSuper));
+
+
     //přepíšu biny z hhResponseTruth do hResponseTruthProj, pokud je histogram prázdný
     //pokud je první bin prázdný
     if (hResponseTruthProj->GetBinContent(1) == 0) {
@@ -3808,7 +3868,7 @@ void plotComparison(TCanvas *can, RooUnfoldResponse *hResponse, RooUnfoldRespons
     //line->Draw();
     can->cd();
     DrawTextAbove(iSuper);
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
     can->Clear();
     //-------------------------------------
     if (ResponseMatrix) {
@@ -3956,7 +4016,7 @@ void plotComparison(TCanvas *can, RooUnfoldResponse *hResponse, RooUnfoldRespons
         can->cd();
 
         DrawTextAbove(iSuper);
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
         //delete hUnfoldingMatrixB;
         delete hUnfoldingMatrix;
         //delete hEfficiency;
@@ -4026,7 +4086,7 @@ void plotComparison(TCanvas *can, RooUnfoldResponse *hResponse, RooUnfoldRespons
         }
         can->cd();
         DrawTextAbove(iSuper);
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
         can->SetCanvasSize(1200, 1000);
         for (int iter = 0; iter < nIter; iter++) {
             ////delete fPearsonCoeffs[iter];
@@ -4126,7 +4186,7 @@ void plotComparison(TCanvas *can, RooUnfoldResponse *hResponse, RooUnfoldRespons
 
 
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
     }
 
@@ -4210,7 +4270,7 @@ void plotComparison(TCanvas *can, RooUnfoldResponse *hResponse, RooUnfoldRespons
         tex->DrawLatex(0.5, 0.05, centralityTitles[iCent] + "  " + var);
 
         //save
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
         //---------------------------------
         can->Clear();
@@ -4284,7 +4344,7 @@ void plotComparison(TCanvas *can, RooUnfoldResponse *hResponse, RooUnfoldRespons
         DrawTextAbove(iSuper);
         tex->DrawLatex(0.5, 0.05, centralityTitles[iCent] + "  " + var);
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
         //---------------------------------
         DeleteArray(hRatiosMc, nIter);
@@ -4339,8 +4399,8 @@ void plotRcp1D(TCanvas *can){
                 hRcpPt[nthParam][iter].GetYaxis()->SetRangeUser(0.0, 2);
                 can->cd(nthParam+1);
                 hRcpPt[nthParam][iter].Draw(iter == 0 ? "" : "same");
-                hRcpPt[nthParam][iter].SetLineColor(2000 + iter);
-                hRcpPt[nthParam][iter].SetMarkerColor(2000 + iter);
+                hRcpPt[nthParam][iter].SetLineColor(2005 + iter);
+                hRcpPt[nthParam][iter].SetMarkerColor(2005 + iter);
                 leg[nthParam]->AddEntry(&hRcpPt[nthParam][iter], Form("Iter %i", PlotIterations[iter]), "lep");
                 if (iter == nIter-1){
                     tex.DrawLatex(0.5, 0.95, TString("1D R_{cp} ") + RcpTitles2[iCent] + "/" + RcpTitles2[jCent]);
@@ -4351,7 +4411,7 @@ void plotRcp1D(TCanvas *can){
         }
     }
 
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
 
 }
 
@@ -4477,8 +4537,8 @@ fLoad->Close();
                             hRcpPtVar_X[nthParam][iVar][iter].Scale(1. * NumberOfWEvents[jCent] / NumberOfWEvents[iCent]);
                             hRcpPtVar_X[nthParam][iVar][iter].GetYaxis()->SetRangeUser(0.0, 2);
                             hRcpPtVar_X[nthParam][iVar][iter].Draw(iter == 0 ? "" : "same");
-                            hRcpPtVar_X[nthParam][iVar][iter].SetLineColor(2000 + iter);
-                            hRcpPtVar_X[nthParam][iVar][iter].SetMarkerColor(2000 + iter);
+                            hRcpPtVar_X[nthParam][iVar][iter].SetLineColor(2005 + iter);
+                            hRcpPtVar_X[nthParam][iVar][iter].SetMarkerColor(2005 + iter);
                            if(jCent == 2 && iter == 0){
                                 pT_gStat[iCent]->Draw("P same");
                                 pT_gSys[iCent]->Draw("E2 same");
@@ -4495,8 +4555,8 @@ fLoad->Close();
                             hRcpPtVar_Y[nthParam][iVar][iter].Scale(1. * NumberOfWEvents[jCent] / NumberOfWEvents[iCent]);
                             hRcpPtVar_Y[nthParam][iVar][iter].GetYaxis()->SetRangeUser(0.0, 2);
                             hRcpPtVar_Y[nthParam][iVar][iter].Draw(iter == 0 ? "" : "same");
-                            hRcpPtVar_Y[nthParam][iVar][iter].SetLineColor(2000 + iter);
-                            hRcpPtVar_Y[nthParam][iVar][iter].SetMarkerColor(2000 + iter);
+                            hRcpPtVar_Y[nthParam][iVar][iter].SetLineColor(2005 + iter);
+                            hRcpPtVar_Y[nthParam][iVar][iter].SetMarkerColor(2005 + iter);
                             if (iter == nIter-1){
                                 tex.DrawLatex(0.5, 0.95, TString("2D R_{cp} ") + RcpTitles2[iCent] + "/" + RcpTitles2[jCent]);
                                 DrawLineOne2(hRcpPtVar_Y[nthParam][iVar][iter].GetXaxis()->GetXmin(),
@@ -4508,8 +4568,8 @@ fLoad->Close();
                             hRcpPtVarReduced_Y[nthParam][iVar][iter].Scale(1. * NumberOfWEvents[jCent] / NumberOfWEvents[iCent]);
                             hRcpPtVarReduced_Y[nthParam][iVar][iter].GetYaxis()->SetRangeUser(0.0, 2);
                             hRcpPtVarReduced_Y[nthParam][iVar][iter].Draw(iter == 0 ? "" : "same");
-                            hRcpPtVarReduced_Y[nthParam][iVar][iter].SetLineColor(2000 + iter);
-                            hRcpPtVarReduced_Y[nthParam][iVar][iter].SetMarkerColor(2000 + iter);
+                            hRcpPtVarReduced_Y[nthParam][iVar][iter].SetLineColor(2005 + iter);
+                            hRcpPtVarReduced_Y[nthParam][iVar][iter].SetMarkerColor(2005 + iter);
                             if (iter == nIter-1){
                                 tex.DrawLatex(0.5, 0.95, TString("2D R_{cp} ") + RcpTitles2[iCent] + "/" + RcpTitles2[jCent]+ ", 5 < p_{T,Jet} < 20 GeV/c");
                                 DrawLineOne2(
@@ -4522,7 +4582,7 @@ fLoad->Close();
                                 hRcpPtVarReduced_Y[nthParam][iVar][iter].Draw("same");
                             }
                         }
-                        can->SaveAs(outPdf);
+                        SavePdfPage(can);
         }
     }
 }
@@ -4845,7 +4905,7 @@ fOutput->Close();
     can->cd();
     legend->AddEntry(gr[0], "Neil's", "l");
     legend->Draw("same");
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
 
     /*
     //Update file OutputSpectra.root, if it doesnt exist, create it
@@ -5029,7 +5089,7 @@ fOutput->Close();
 
     can->cd();
     legend2->Draw("same");
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
 
     TLegend *legLam[7][3];
 
@@ -5090,7 +5150,7 @@ fOutput->Close();
             }
         }
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
     }
 
@@ -5182,8 +5242,8 @@ void plotRCP(int step, bool svd, TCanvas *can, TH1D *hRcpPt_[],
         hRcpPt_[iter]->Scale(NumberOfWEvents[jCent] / NumberOfWEvents[iCent]);
 
         hzPt[iter] = (TH1D *) hRcpPt_[iter]->Clone(Form("hzPt_%i", iter));
-        hzPt[iter]->SetLineColor(2000 + iter);
-        hzPt[iter]->SetMarkerColor(2000 + iter);
+        hzPt[iter]->SetLineColor(2005 + iter);
+        hzPt[iter]->SetMarkerColor(2005 + iter);
         hzPt[iter]->SetMarkerStyle(20);
 
         TString label = svd ? Form("kterm%i", kterm[iter]) : Form("Iter%i", PlotIterations[iter]);
@@ -5266,8 +5326,8 @@ plotRCP(TCanvas *can, TH2D *hRcp[], TH2D *hUnfoldedNumerator[], TH2D *hUnfoldedD
         hzX[iter]->Divide(hDenomX[iter]);
         hzX[iter]->Scale(1. * Ncoll[jCent] / Ncoll[iCent]);
         hzX[iter]->Scale(1. * NumberOfWEvents[jCent] / NumberOfWEvents[iCent]);
-        hzX[iter]->SetLineColor(2000 + iter);
-        hzX[iter]->SetMarkerColor(2000 + iter);
+        hzX[iter]->SetLineColor(2005 + iter);
+        hzX[iter]->SetMarkerColor(2005 + iter);
         hzX[iter]->SetMarkerStyle(20);
 
         //Projekce na y-ovou osu
@@ -5277,8 +5337,8 @@ plotRCP(TCanvas *can, TH2D *hRcp[], TH2D *hUnfoldedNumerator[], TH2D *hUnfoldedD
         hzY[iter]->Divide(hDenomY[iter]);
         hzY[iter]->Scale(1. * Ncoll[jCent] / Ncoll[iCent]);
         hzY[iter]->Scale(1. * NumberOfWEvents[jCent] / NumberOfWEvents[iCent]);
-        hzY[iter]->SetLineColor(2000 + iter);
-        hzY[iter]->SetMarkerColor(2000 + iter);
+        hzY[iter]->SetLineColor(2005 + iter);
+        hzY[iter]->SetMarkerColor(2005 + iter);
         hzY[iter]->SetMarkerStyle(20);
 
         leg1->AddEntry(hzX[iter], Form("Iter%i", PlotIterations[iter]), "lep");
@@ -5403,7 +5463,7 @@ plotRCP(TCanvas *can, TH2D *hRcp[], TH2D *hUnfoldedNumerator[], TH2D *hUnfoldedD
 
     can->cd();
     //DrawTextAbove();
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
     can->Clear();
     delete leg;
     delete leg1;
@@ -5613,7 +5673,7 @@ void plotResolution(TCanvas *can){
                            Form("Centrality %d-%d%%", centrality[iCent][0], centrality[iCent][1]));
         }
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
         // ---- Page 2: heatmaps (Mean + Sigma) ----
         can->cd();
@@ -5658,7 +5718,7 @@ void plotResolution(TCanvas *can){
         tex_title.DrawLatex(0.25,0.96,Form("Sigma (RMS) resolution (var %s)",  varTitle[iVar].Data()));
 
 
-        can->SaveAs(outPdf);
+        SavePdfPage(can);
 
         // ---- cleanup ----
         delete hMeanMap;
@@ -5989,6 +6049,50 @@ void LoadDataCache()
     fCache->Close();
 }
 void LoadDataMC() {
+
+std::unique_ptr<TF1> gRefExtraWeight[9];
+
+if (useGRefWeight) {
+    // Restore the current ROOT directory when this block ends.
+    TDirectory::TContext directoryContext;
+
+    const TString weightFileName = Form(
+        "./RhoInvest/output/RhoInvest_%s_D0_%g_%g_gRefFit2.root",
+        Method.Data(), minPtD0Cut, maxPtD0Cut
+    );
+
+    TFile weightFile(weightFileName, "READ");
+    if (weightFile.IsZombie()) {
+        throw std::runtime_error(
+            Form("Cannot open gRefMult weights: %s",
+                 weightFileName.Data())
+        );
+    }
+
+    for (int c = 0; c < 9; ++c) {
+        TF1* source = nullptr;
+        weightFile.GetObject(
+            Form("gRefExtraWeight_code%d", c), source
+        );
+
+        if (!source) {
+            throw std::runtime_error(
+                Form("Missing gRefExtraWeight_code%d in %s",
+                     c, weightFileName.Data())
+            );
+        }
+
+        // Own a copy that survives closing the input file.
+        gRefExtraWeight[c].reset(
+            static_cast<TF1*>(source->Clone(
+                Form("machine_gRefExtraWeight_code%d", c)
+            ))
+        );
+    }
+
+    cout << "Using gRefMult weights: "
+         << weightFileName << endl;
+}
 
     TRandom3 randSplit(12345);
     TFile *treeFile;
@@ -6357,18 +6461,55 @@ void LoadDataMC() {
                   / nCentralityNumbersMC->GetBinContent(
                 nCentralityNumbersMC->FindBin(_centrality)); //Number of events in MC event (Normalization)
 
+
+        if (useGRefWeight) cweight *= gRefExtraWeight[int(_centrality)]->Eval(mcJet.gRefMultMc);
+
         double weightPt = 1.;
 
 
-        if (FONLLjet)
-            weightPt = 1. / McPTRawD0Jet[centBin]->GetBinContent(McPTRawD0Jet[centBin]->FindBin(_mcJetPt)) *
-                       pureFonll->Eval(_mcJetPt) *100000;        //pure FONLL //_mcJetPt
+        if (FONLLjet){
+           weightPt = 1. / McPTRawD0Jet[centBin]->GetBinContent(McPTRawD0Jet[centBin]->FindBin(_mcJetPt)) *
+                       pureFonll->Eval(_mcJetPt) *10000000000;
+
+            ///if (_centralityAlt > 40) weightPt *=   1. / McPTRawD0Jet[centBin]->GetBinContent(McPTRawD0Jet[centBin]->FindBin(_mcJetPt))  * std::exp(-8.0 * std::log(_mcJetPt / 8.0)-2.0 * std::pow(std::log(_mcJetPt / 8.0), 2));   
+           }   //pure FONLL //_mcJetPt}
         else
             weightPt = 1. / McPTRawD0[centBin]->GetBinContent(McPTRawD0[centBin]->FindBin(_mcD0Pt)) *
-            pureFonllD0meson->Eval(_mcD0Pt) * 100000 ;        //pure FONLL
+            pureFonllD0meson->Eval(_mcD0Pt) * 10000000000 ;        //pure FONLL
+
+//if (_centralityAlt > 40) weightPt *= GetPtTiltWeight(_mcJetPt);
 
         double weight = 1;
         weight = weightPt * cweight;// * vaha;
+
+        // Standardně mají response a pseudodata stejnou váhu.
+        double weightPseudoData = weight;
+
+        if (ClosureTest && crossClosure) {
+            // Pseudodata použijí opačné pořadí než response.
+            TH1D *hDenomPseudo = cutBefore ? McPTRawD0JetAfter[centBin] : McPTRawD0JetBefore[centBin];
+
+            const double denomPseudo = hDenomPseudo->GetBinContent(hDenomPseudo->FindBin(_mcJetPt));
+
+            const double denomResponse = McPTRawD0Jet[centBin]->GetBinContent(McPTRawD0Jet[centBin]->FindBin(_mcJetPt));
+
+            if (!isfinite(denomPseudo) || denomPseudo <= 0.0 ||
+                !isfinite(denomResponse) || denomResponse <= 0.0) {
+                cerr << "Invalid cross-closure denominator: centrality = "
+                    << centBin << ", jet pT = " << _mcJetPt << endl;
+                exit(1);
+            }
+
+            // Zachováme FONLL čitatel i všechny společné faktory.
+            // Změníme pouze MC jmenovatel.
+            weightPseudoData = weight * (denomResponse / denomPseudo);
+            //double weightPseudoData = weight;
+
+            if (!isfinite(weightPseudoData) || weightPseudoData < 0.0) {
+                cerr << "Invalid cross-closure pseudodata weight" << endl;
+                exit(1);
+            }
+        }
 
         //skip if inf
         if (!isfinite(weight)) {
@@ -6496,7 +6637,6 @@ void LoadDataMC() {
 
                     for (int iAng = 0; iAng < 6; iAng++){
 
-
                         if (isMatchedPtLambda[iAng]) {
 
 			    Double_t coord4D[4] = {_recoJetPt, _recoLambda[iAng], _mcJetPt, _mcLambda[iAng]};
@@ -6578,12 +6718,55 @@ void LoadDataMC() {
             || (!UseTheSameSample && iEntry > ((TrainToTestRatio * nEntries)) && iEntry < (nEntries))
             )   )
         {*/
+       /*
         if (ClosureTest && goesToTest){
             if (isRecoPt) hRealData[centBin].Fill(_recoJetPt, weight);
             if (Unfold2D) {
                 if (isRecoPtZ) hRealData2D[centBin][0].Fill(_recoJetPt, _recoD0Z, weight);
                 for (int ang = 0; ang < nAngularities; ang++) {
                     if (isRecoPtLambda[ang]) hRealData2D[centBin][ang + 1].Fill(_recoJetPt, _recoLambda[ang], weight);
+                }
+            }
+        }*/
+       if (ClosureTest && goesToTest) {
+                    if (crossClosure) {
+                if (isTruePt) {
+                    hCrossTruthPt[centBin]->Fill(
+                        _mcJetPt, weightPseudoData);
+                }
+
+                if (Unfold2D) {
+                    if (isTruePtZ) {
+                        hCrossTruth2D[centBin][0]->Fill(
+                            _mcJetPt, _mcD0Z, weightPseudoData);
+                    }
+
+                    for (int ang = 0; ang < nAngularities; ++ang) {
+                        if (isTruePtLambda[ang]) {
+                            hCrossTruth2D[centBin][ang + 1]->Fill(
+                                _mcJetPt, _mcLambda[ang],
+                                weightPseudoData);
+                        }
+                    }
+                }
+            }
+            if (isRecoPt) {
+                hRealData[centBin].Fill(
+                    _recoJetPt, weightPseudoData);
+            }
+
+            if (Unfold2D) {
+                if (isRecoPtZ) {
+                    hRealData2D[centBin][0].Fill(
+                        _recoJetPt, _recoD0Z, weightPseudoData);
+                }
+
+                for (int ang = 0; ang < nAngularities; ++ang) {
+                    if (isRecoPtLambda[ang]) {
+                        hRealData2D[centBin][ang + 1].Fill(
+                            _recoJetPt, _recoLambda[ang],
+                            weightPseudoData);
+                    }
                 }
             }
         }
@@ -7090,25 +7273,72 @@ void LoadDataRealParams() {
         Int_t centBin9 = getCentralityBin99(recoJet.centrality); //0, 1, 2
         Int_t centBin = recoJet.centrality;
 
+        // Společný rozsah D0 pT 1–10 pro variantu reshape → cut.
+        if (crossClosure &&
+            _centrality >= 0 &&
+            _mcD0Pt >= 1.0 && _mcD0Pt < 10.0 &&
+            _mcSmearedD0Pt >= 1.0 && _mcSmearedD0Pt < 10.0 &&
+            !(abs(_mcJetEta) > 0.6 && abs(_recoJetEta) > 0.6) &&
+            _mcJetPt <= 30 &&
+            !(deleteOneConstituentJets &&
+            _mcNConst == 1 && _recoNConst == 1)) {
 
-        if (_centrality < 0) continue;
-        if (_mcD0Pt < minPtD0Cut) continue;
-        if (_mcD0Pt >= maxPtD0Cut) continue;
-        if (_mcSmearedD0Pt < minPtD0Cut) continue;
-        if (_mcSmearedD0Pt >= maxPtD0Cut) continue;
+            McPTRawD0JetAfter[centBin9]->Fill(_mcJetPt, _weightCentrality);
+        }
 
-        if (abs(_mcJetEta) > 0.6 && abs(_recoJetEta) > 0.6) continue; //tyhle vůbec nechci
-        if (_mcJetPt > 30) continue;
+        if (cutBefore) {
 
-        if (deleteOneConstituentJets && _mcNConst == 1 && _recoNConst == 1) continue;
+            if (_centrality < 0) continue;
+            if (_mcD0Pt < minPtD0Cut) continue;
+            if (_mcD0Pt >= maxPtD0Cut) continue;
+            if (_mcSmearedD0Pt < minPtD0Cut) continue;
+            if (_mcSmearedD0Pt >= maxPtD0Cut) continue;
 
-        JetPtZMc[centBin9]->Fill(_mcJetPt, _mcD0Z, _weightCentrality);
-        nCentralityNumbersMC->Fill(centBin, _weightCentrality);
-        gRefMultMc->Fill(_gRefMult, _weightCentrality);
-        McPTRawD0[centBin9]->Fill(_mcD0Pt, _weightCentrality);
-        McPTRawD0Jet[centBin9]->Fill(_mcJetPt, _weightCentrality);
-        McPTRawD0JetD0Meson[centBin9]->Fill(_mcJetPt, _mcD0Pt, _weightCentrality);
+            if (abs(_mcJetEta) > 0.6 && abs(_recoJetEta) > 0.6) continue; //tyhle vůbec nechci
+            if (_mcJetPt > 30) continue;
 
+            if (deleteOneConstituentJets && _mcNConst == 1 && _recoNConst == 1) continue;
+
+            JetPtZMc[centBin9]->Fill(_mcJetPt, _mcD0Z, _weightCentrality);
+            nCentralityNumbersMC->Fill(centBin, _weightCentrality);
+            gRefMultMc->Fill(_gRefMult, _weightCentrality);
+            McPTRawD0[centBin9]->Fill(_mcD0Pt, _weightCentrality);
+            McPTRawD0Jet[centBin9]->Fill(_mcJetPt, _weightCentrality);
+            McPTRawD0JetD0Meson[centBin9]->Fill(_mcJetPt, _mcD0Pt, _weightCentrality);
+
+        }else{
+
+            if (_centrality < 0) continue;
+
+            // Společný rozsah pro odvození FONLL vah.
+            if (_mcD0Pt < 1.0 || _mcD0Pt >= 10.0) continue;
+            if (_mcSmearedD0Pt < 1.0 || _mcSmearedD0Pt >= 10.0) continue;
+
+            if (abs(_mcJetEta) > 0.6 && abs(_recoJetEta) > 0.6) continue;
+            if (_mcJetPt > 30) continue;
+
+            if (deleteOneConstituentJets &&
+                _mcNConst == 1 && _recoNConst == 1) continue;
+
+            // Jmenovatel jet-pT váhy: vždy D0 pT 1–10.
+            McPTRawD0Jet[centBin9]->Fill(_mcJetPt, _weightCentrality);
+
+            // Vlastní analyzovaný rozsah, například D0 pT 5–10.
+            if (_mcD0Pt < minPtD0Cut) continue;
+            if (_mcD0Pt >= maxPtD0Cut) continue;
+            if (_mcSmearedD0Pt < minPtD0Cut) continue;
+            if (_mcSmearedD0Pt >= maxPtD0Cut) continue;
+
+            JetPtZMc[centBin9]->Fill(_mcJetPt, _mcD0Z, _weightCentrality);
+            nCentralityNumbersMC->Fill(centBin, _weightCentrality);
+            gRefMultMc->Fill(_gRefMult, _weightCentrality);
+            McPTRawD0[centBin9]->Fill(_mcD0Pt, _weightCentrality);
+            McPTRawD0JetD0Meson[centBin9]->Fill(_mcJetPt, _mcD0Pt, _weightCentrality);
+        }
+
+        // Požadovaný D0 interval pro variantu cut → reshape.
+        // Sem už projdou pouze eventy splňující analýzové řezy.
+        if (crossClosure) {McPTRawD0JetBefore[centBin9]->Fill( _mcJetPt, _weightCentrality);}
 
         //kin eff:
         double recoJetPtMin = ptRecoBinsVec[centBin9][0];
@@ -7599,8 +7829,6 @@ void LoadDataReal() {
         }
 
     if (CutOfNegative) {
-        int CutNegativeMode = 2; // 0 none, 1 post-sum, 2 pre-sum
-
         // --- (A) PRE-SUM CUT: vynuluj negativní biny na slice histogramech dřív, než je sečteš
         if (CutNegativeMode == 2) {
             for (int i = 0; i < nCentralityBins; i++) {
@@ -7744,11 +7972,728 @@ void ApplyOverrideMacro(const char* overrideMacro)
     gROOT->Macro(overrideMacro);
 }
 
+// ============================================================================
+// Negative-bin diagnostic
+// ============================================================================
+
+struct NegativeBinStats {
+    int nBins;
+    int nNegative;
+    double nPlus;
+    double nMinus;
+
+    NegativeBinStats()
+        : nBins(0),
+          nNegative(0),
+          nPlus(0.0),
+          nMinus(0.0)
+    {}
+
+    double Ratio() const {
+        return (nPlus > 0.0) ? nMinus / nPlus : 0.0;
+    }
+};
+
+
+// -----------------------------------------------------------------------------
+// Count negative bins.
+//
+// If usePtWindow == true, only x bins completely contained in
+// [ptMin, ptMax] are used.
+// For unfolded histograms x = pT,Jet^true.
+// -----------------------------------------------------------------------------
+NegativeBinStats GetNegativeBinStats(
+    const TH2D *h,
+    bool usePtWindow = false,
+    double ptMin = 5.0,
+    double ptMax = 20.0)
+{
+    NegativeBinStats s;
+
+    if (!h)
+        return s;
+
+    for (int ix = 1; ix <= h->GetNbinsX(); ++ix) {
+
+        if (usePtWindow) {
+
+            const double low =
+                h->GetXaxis()->GetBinLowEdge(ix);
+
+            const double up =
+                h->GetXaxis()->GetBinUpEdge(ix);
+
+            // Use only complete bins inside the requested interval.
+            if (low < ptMin || up > ptMax)
+                continue;
+        }
+
+        for (int iy = 1; iy <= h->GetNbinsY(); ++iy) {
+
+            const double value =
+                h->GetBinContent(ix, iy);
+
+            ++s.nBins;
+
+            if (value < 0.0) {
+                ++s.nNegative;
+                s.nMinus += -value;
+            }
+            else if (value > 0.0) {
+                s.nPlus += value;
+            }
+        }
+    }
+
+    return s;
+}
+
+
+// -----------------------------------------------------------------------------
+// Make a histogram containing ONLY the magnitude of negative bins.
+// Positive and zero bins are set to zero.
+// -----------------------------------------------------------------------------
+TH2D *MakeNegativeOnlyHistogram(
+    const TH2D *h,
+    const TString &name)
+{
+    if (!h)
+        return nullptr;
+
+    TH2D *out =
+        (TH2D *) h->Clone(name);
+
+    out->SetDirectory(0);
+
+    for (int ix = 1; ix <= out->GetNbinsX(); ++ix) {
+        for (int iy = 1; iy <= out->GetNbinsY(); ++iy) {
+
+            const double value =
+                h->GetBinContent(ix, iy);
+
+            if (value < 0.0)
+                out->SetBinContent(ix, iy, -value);
+            else
+                out->SetBinContent(ix, iy, 0.0);
+
+            out->SetBinError(ix, iy, 0.0);
+        }
+    }
+
+    return out;
+}
+
+
+// -----------------------------------------------------------------------------
+// Name of the observable corresponding to hRealData2D[][variable].
+// hRealData2D indexing in Machine is:
+//   0 = z
+//   1 = lambda_1^1
+//   ...
+//   6 = pT^D
+// -----------------------------------------------------------------------------
+TString NegativeDiagVariableName(int variable)
+{
+    if (variable == 0)
+        return "z";
+
+    if (variable >= 1 && variable <= 6)
+        return AngNames[variable - 1];
+
+    return Form("variable %d", variable);
+}
+
+
+// -----------------------------------------------------------------------------
+// Main diagnostic.
+// Uses EXACTLY hRealData2D and hUnfolded2D already produced by Machine.
+// -----------------------------------------------------------------------------
+void SaveNegativeBinsDiagnostic()
+{
+    if (!SaveNegativeBinsPdf)
+        return;
+
+    if (!Unfold2D)
+        return;
+
+
+    // -------------------------------------------------------------------------
+    // Output filename
+    // -------------------------------------------------------------------------
+
+    TString outputTag =
+        gSystem->BaseName(outputFileMachine);
+
+    // Just in case OutputFile contains an extension.
+    outputTag.ReplaceAll(".root", "");
+    outputTag.ReplaceAll(".pdf", "");
+
+
+    TString methodTag = Method;
+
+    TString pdfName =
+        "./OutputPdf/NegativeBins_" +
+        outputTag + "_" +
+        methodTag + ".pdf";
+
+
+    cout << endl;
+    cout << "==============================================" << endl;
+    cout << "Saving negative-bin diagnostic:" << endl;
+    cout << "  " << pdfName << endl;
+    cout << "==============================================" << endl;
+
+
+    // Diagnostic pT interval.
+    const double diagPtMin = 5.0;
+    const double diagPtMax = 20.0;
+
+
+    // -------------------------------------------------------------------------
+    // Open PDF
+    // -------------------------------------------------------------------------
+
+    TCanvas *can =
+        new TCanvas(
+            "NegativeBinsDiagnosticCanvas",
+            "Negative-bin diagnostic",
+            2200,
+            1400);
+
+    can->Print(pdfName + "[");
+
+
+    // ========================================================================
+    // PAGE 1: TEXT SUMMARY
+    // ========================================================================
+
+    can->Clear();
+    can->SetCanvasSize(2400, 1500);
+
+    TLatex latex;
+    latex.SetNDC();
+    latex.SetTextFont(82);  // monospaced
+    latex.SetTextAlign(12);
+
+
+    double y = 0.970;
+
+    latex.SetTextSize(0.025);
+
+    latex.DrawLatex(
+        0.02,
+        y,
+        "Negative-bin diagnostic");
+
+    y -= 0.035;
+
+
+    latex.SetTextSize(0.017);
+
+    latex.DrawLatex(
+        0.02,
+        y,
+        Form(
+            "Output: %s    Method: %s    D0 pT: %.1f-%.1f GeV/c",
+            outputTag.Data(),
+            Method.Data(),
+            minPtD0Cut,
+            maxPtD0Cut));
+
+    y -= 0.027;
+
+    latex.DrawLatex(
+        0.02,
+        y,
+        Form(
+            "CutOfNegative = %s    CutNegativeMode = %d    diagnostic pT window = %.0f-%.0f GeV/c",
+            CutOfNegative ? "true" : "false",
+            CutNegativeMode,
+            diagPtMin,
+            diagPtMax));
+
+    y -= 0.027;
+
+    latex.DrawLatex(
+        0.02,
+        y,
+        "Each entry: nNegative (N-/N+).  For unfolded bins: full / pT-window.");
+
+    y -= 0.040;
+
+
+   // ---------------------------------------------------------------------
+// Fixed column positions.
+// Do NOT align using spaces -- TLatex parses math expressions.
+// ---------------------------------------------------------------------
+
+can->SetCanvasSize(2800, 1600);
+
+// Column centers in NDC coordinates
+const double xVar   = 0.055;
+const double xInput = 0.185;
+
+const double xIterMin = 0.335;
+const double xIterMax = 0.925;
+
+std::vector<double> xIter(nIter);
+
+if (nIter == 1) {
+    xIter[0] = 0.63;
+}
+else {
+    for (int iter = 0; iter < nIter; ++iter) {
+        xIter[iter] =
+            xIterMin +
+            (xIterMax - xIterMin) *
+            double(iter) / double(nIter - 1);
+    }
+}
+
+
+// Separate TLatex objects:
+// variable names use normal ROOT math font,
+// numerical cells use monospaced font.
+TLatex latexVar;
+latexVar.SetNDC();
+latexVar.SetTextFont(42);
+latexVar.SetTextAlign(22);
+
+TLatex latexCell;
+latexCell.SetNDC();
+latexCell.SetTextFont(82);
+latexCell.SetTextAlign(22);
+
+
+// ---------------------------------------------------------------------
+// One block per centrality.
+// ---------------------------------------------------------------------
+
+for (int iCent = 0;
+     iCent < nCentralityBins;
+     ++iCent)
+{
+    // Centrality title
+    latexVar.SetTextAlign(12);
+    latexVar.SetTextSize(0.019);
+
+    latexVar.DrawLatex(
+        0.020,
+        y,
+        centralityTitles[iCent]);
+
+    y -= 0.027;
+
+
+    // -----------------------------------------------------------------
+    // Column headers
+    // -----------------------------------------------------------------
+
+    latexVar.SetTextAlign(22);
+    latexVar.SetTextSize(0.0145);
+
+    latexVar.DrawLatex(
+        xVar,
+        y,
+        "observable");
+
+    latexVar.DrawLatex(
+        xInput,
+        y,
+        "input");
+
+    for (int iter = 0; iter < nIter; ++iter) {
+        latexVar.DrawLatex(
+            xIter[iter],
+            y,
+            Form("Iter %d", PlotIterations[iter]));
+    }
+
+    y -= 0.018;
+
+
+    // Small sub-header explaining cell contents
+    latexCell.SetTextSize(0.0105);
+
+    latexCell.DrawLatex(
+        xInput,
+        y,
+        "nNeg   N-/N+");
+
+    for (int iter = 0; iter < nIter; ++iter) {
+        latexCell.DrawLatex(
+            xIter[iter],
+            y,
+            "nF/nW   RF/RW");
+    }
+
+    y -= 0.022;
+
+
+    // -----------------------------------------------------------------
+    // Seven observables
+    // -----------------------------------------------------------------
+
+    for (int variable = 0;
+         variable < 7;
+         ++variable)
+    {
+        TString varName =
+            NegativeDiagVariableName(variable);
+
+
+        // Variable name
+        latexVar.SetTextAlign(22);
+        latexVar.SetTextSize(0.0140);
+
+        latexVar.DrawLatex(
+            xVar,
+            y,
+            varName);
+
+
+        // -------------------------------------------------------------
+        // Input
+        // -------------------------------------------------------------
+
+        NegativeBinStats reco =
+            GetNegativeBinStats(
+                &hRealData2D[iCent][variable]);
+
+
+        latexCell.SetTextAlign(22);
+        latexCell.SetTextSize(0.0115);
+
+        latexCell.DrawLatex(
+            xInput,
+            y,
+            Form(
+                "%d   %.2e",
+                reco.nNegative,
+                reco.Ratio()));
+
+
+        // -------------------------------------------------------------
+        // Unfolded iterations
+        // -------------------------------------------------------------
+
+        for (int iter = 0;
+             iter < nIter;
+             ++iter)
+        {
+            NegativeBinStats full =
+                GetNegativeBinStats(
+                    &hUnfolded2D[iCent][variable][iter]);
+
+
+            NegativeBinStats window =
+                GetNegativeBinStats(
+                    &hUnfolded2D[iCent][variable][iter],
+                    true,
+                    diagPtMin,
+                    diagPtMax);
+
+
+            latexCell.DrawLatex(
+                xIter[iter],
+                y,
+                Form(
+                    "%d/%d   %.1e/%.1e",
+                    full.nNegative,
+                    window.nNegative,
+                    full.Ratio(),
+                    window.Ratio()));
+        }
+
+
+        y -= 0.023;
+    }
+
+
+    y -= 0.019;
+}
+
+
+// ---------------------------------------------------------------------
+// Legend / explanation
+// ---------------------------------------------------------------------
+
+TText footer;
+footer.SetNDC();
+footer.SetTextFont(42);
+footer.SetTextAlign(12);
+footer.SetTextSize(0.0130);
+
+footer.DrawText(
+    0.020,
+    y,
+    "Input: nNeg and Nminus/Nplus for the complete measured 2D histogram.");
+
+y -= 0.022;
+
+footer.DrawText(
+    0.020,
+    y,
+    Form(
+        "nF/nW: number of negative bins in full range / %.0f-%.0f GeV/c truth jet-pT window.",
+        diagPtMin,
+        diagPtMax));
+
+y -= 0.022;
+
+footer.DrawText(
+    0.020,
+    y,
+    "RF/RW: corresponding Nminus/Nplus ratio in full range / truth jet-pT window.");
+can->cd();
+can->Modified();
+can->Update();
+can->Print(pdfName);
+
+    // ========================================================================
+    // FOLLOWING PAGES:
+    //
+    // One page for each centrality + observable.
+    //
+    // Input | Iter1 | Iter2
+    // Iter3 | Iter4 | ...
+    //
+    // Only negative-bin magnitudes are shown.
+    // ========================================================================
+
+    for (int iCent = 0;
+         iCent < nCentralityBins;
+         ++iCent)
+    {
+        for (int variable = 0;
+             variable < 7;
+             ++variable)
+        {
+            can->Clear();
+
+
+            const int nPanels = nIter + 1;
+
+            const int nColumns = 3;
+            const int nRows =
+                (nPanels + nColumns - 1) /
+                nColumns;
+
+
+            can->SetCanvasSize(
+                1800,
+                600 * nRows);
+
+            can->Divide(
+                nColumns,
+                nRows);
+
+
+            TString varName =
+                NegativeDiagVariableName(variable);
+
+
+            // -------------------------------------------------------------
+            // PANEL 1: measured input
+            // -------------------------------------------------------------
+
+            can->cd(1);
+
+            gPad->SetRightMargin(0.16);
+            gPad->SetLeftMargin(0.12);
+            gPad->SetBottomMargin(0.12);
+
+
+            NegativeBinStats reco =
+                GetNegativeBinStats(
+                    &hRealData2D[iCent][variable]);
+
+
+            TH2D *hNegInput =
+                MakeNegativeOnlyHistogram(
+                    &hRealData2D[iCent][variable],
+                    Form(
+                        "hNegativeInput_c%d_v%d",
+                        iCent,
+                        variable));
+
+
+            hNegInput->SetTitle(
+                Form(
+                    "%s, %s: input; p_{T,Jet}^{reco} [GeV/c]; %s",
+                    centralityTitles[iCent].Data(),
+                    varName.Data(),
+                    varName.Data()));
+
+
+            if (reco.nNegative > 0) {
+
+                hNegInput->SetMarkerSize(0.65);
+
+                hNegInput->Draw("COLZ TEXT");
+            }
+            else {
+
+                hNegInput->Draw("AXIS");
+
+                TLatex noNegative;
+                noNegative.SetNDC();
+                noNegative.SetTextAlign(22);
+                noNegative.SetTextSize(0.055);
+
+                noNegative.DrawLatex(
+                    0.50,
+                    0.50,
+                    "No negative bins");
+            }
+
+
+            TLatex infoInput;
+            infoInput.SetNDC();
+            infoInput.SetTextSize(0.035);
+
+            infoInput.DrawLatex(
+                0.12,
+                0.94,
+                Form(
+                    "n_{-} = %d,  N_{-}/N_{+} = %.3e",
+                    reco.nNegative,
+                    reco.Ratio()));
+
+
+            // -------------------------------------------------------------
+            // Remaining panels: unfolded iterations
+            // -------------------------------------------------------------
+
+            for (int iter = 0;
+                 iter < nIter;
+                 ++iter)
+            {
+                can->cd(iter + 2);
+
+                gPad->SetRightMargin(0.16);
+                gPad->SetLeftMargin(0.12);
+                gPad->SetBottomMargin(0.12);
+
+
+                TH2D *source =
+                    &hUnfolded2D[iCent][variable][iter];
+
+
+                NegativeBinStats full =
+                    GetNegativeBinStats(source);
+
+
+                NegativeBinStats window =
+                    GetNegativeBinStats(
+                        source,
+                        true,
+                        diagPtMin,
+                        diagPtMax);
+
+
+                TH2D *hNeg =
+                    MakeNegativeOnlyHistogram(
+                        source,
+                        Form(
+                            "hNegativeUnfolded_c%d_v%d_i%d",
+                            iCent,
+                            variable,
+                            iter));
+
+
+                hNeg->SetTitle(
+                    Form(
+                        "%s, %s: iteration %d;"
+                        "p_{T,Jet}^{true} [GeV/c];%s",
+                        centralityTitles[iCent].Data(),
+                        varName.Data(),
+                        PlotIterations[iter],
+                        varName.Data()));
+
+
+                if (full.nNegative > 0) {
+
+                    hNeg->SetMarkerSize(0.65);
+
+                    hNeg->Draw("COLZ TEXT");
+                }
+                else {
+
+                    hNeg->Draw("AXIS");
+
+                    TLatex noNegative;
+                    noNegative.SetNDC();
+                    noNegative.SetTextAlign(22);
+                    noNegative.SetTextSize(0.055);
+
+                    noNegative.DrawLatex(
+                        0.50,
+                        0.50,
+                        "No negative bins");
+                }
+
+
+                TLatex info;
+                info.SetNDC();
+                info.SetTextSize(0.030);
+
+                info.DrawLatex(
+                    0.10,
+                    0.955,
+                    Form(
+                        "full: n_{-}=%d, N_{-}/N_{+}=%.2e",
+                        full.nNegative,
+                        full.Ratio()));
+
+                info.DrawLatex(
+                    0.10,
+                    0.915,
+                    Form(
+                        "%.0f-%.0f GeV/c: n_{-}=%d, N_{-}/N_{+}=%.2e",
+                        diagPtMin,
+                        diagPtMax,
+                        window.nNegative,
+                        window.Ratio()));
+
+
+               // delete hNeg;
+            }
+
+
+            // IMPORTANT:
+            // hNegInput was drawn directly, therefore keep it alive until
+            // after Print().
+            can->Modified();
+            can->Update();
+            can->Print(pdfName);
+
+
+            delete hNegInput;
+        }
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Close PDF
+    // -------------------------------------------------------------------------
+
+    can->Print(pdfName + "]");
+
+
+    delete can;
+
+
+    cout << "Negative-bin diagnostic saved to:" << endl;
+    cout << "  " << pdfName << endl;
+}
+
+
 void Machine(bool _fonllJet = true, bool _CutOfNegative = true, double _minJetPtRecoCut = -30,
              int _savedIter = 4,
              char *InputFileIn = 0,
-             const char *OutputFile = "Test",
-             double _minPtD0Cut = 5, double _maxPtD0Cut = 10, //min not applied
+             const char *OutputFile = "Unfolding110NewBinning",
+             double _minPtD0Cut = 1, double _maxPtD0Cut = 10,
              const char *OverrideMacro = "",
              const char *ScanDir = "Test",
              int usePriorShapeWeighting = 0, //0 none, 1X JetpT, 2X second variable // X = 0 +20%; X = 1 -20%
@@ -7799,43 +8744,43 @@ void Machine(bool _fonllJet = true, bool _CutOfNegative = true, double _minJetPt
         sys = "_jetRecEfficiency";
         RealJetsFileData = "./Data/Output_real_final_01022026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_trackEff_05052026.root"; 
     }
     if (_systematicSPlot == 22){
         sys = "_jetnHitsFit13";
         RealJetsFileData = "./Data/Output_ana_MidLow_nHitsFit13_12052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_nHitsFit13_06052026.root"; 
     }
     if (_systematicSPlot == 23){
         sys = "_jetnHitsFit17";
-        RealJetsFileData = "./Data/Output_real_final_01022026.root";
+        RealJetsFileData = "./Data/Output_ana_MidLow_nHitsFit17_15052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_nHitsFit17_06052026.root"; 
     }
     if (_systematicSPlot == 24){
         sys = "_jetKTDrop";
         RealJetsFileData = "./Data/Output_ana_MidLow_kTDrop_12052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_kTDrop_07052026.root"; 
     }
     if (_systematicSPlot == 25){
         sys = "_jetDCA2_8";
-        RealJetsFileData = "./Data/Output_real_final_01022026.root";
+        RealJetsFileData = "./Data/Output_ana_MidLow_DCA2_8_14052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_DCA2_8_09052026.root"; 
     }
     if (_systematicSPlot == 26){
         sys = "_jetDCA3_2";
-        RealJetsFileData = "./Data/Output_real_final_01022026.root";
+        RealJetsFileData = "./Data/Output_ana_MidLow_DCA3_2_14052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_DCA3_2_10052026.root"; 
     }
     if (_systematicSPlot == 27){
         sys = "_jetHadronicCorr";
-        RealJetsFileData = "./Data/Output_real_final_01022026.root";
+        RealJetsFileData = "./Data/Output_ana_MidLow_hadrCorr_15052026.root";
         InputFile = RealJetsFileData;
-        McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; 
+        McJetsFileData = "./Data/Output_MC_MidLow_hadrCorr_08052026.root"; 
     }
 
     _sys=sys;
@@ -7878,6 +8823,43 @@ outputFileMachine = OutputFile;
     TString _outPdf = "./OutputPdf/" + TString(OutputFile) + TString(runId) + TString(Method)+"Rcp.pdf";
     outPdf = _outPdf;
 
+
+    // Optional ROOT file containing exactly the canvases written to outPdf.
+    gPdfCanvasPage = 0;
+    gPdfCanvasFile = nullptr;
+
+    if (SavePdfCanvases) {
+
+        TString canvasRootName = outPdf;
+        canvasRootName.ReplaceAll(".pdf", "_canvases.root");
+
+        // Opening a TFile changes gDirectory, so restore it immediately.
+        TDirectory *oldDirectory = gDirectory;
+
+        gPdfCanvasFile = TFile::Open(canvasRootName, "RECREATE");
+
+        if (oldDirectory)
+            oldDirectory->cd();
+        else
+            gROOT->cd();
+
+        if (!gPdfCanvasFile || gPdfCanvasFile->IsZombie()) {
+
+            cerr << "[canvas-save] Cannot create " << canvasRootName << endl;
+
+            if (gPdfCanvasFile) {
+                delete gPdfCanvasFile;
+                gPdfCanvasFile = nullptr;
+            }
+
+        } else {
+
+            cout << "[canvas-save] Saving PDF canvases also to " << canvasRootName << endl;
+        }
+    }
+
+
+
     gSystem->Load("libRooUnfold");
 
     TH1::SetDefaultSumw2();
@@ -7892,6 +8874,49 @@ outputFileMachine = OutputFile;
 
     //Histogram initialization
     HistogramInit();
+
+    if (crossClosure) {
+    for (int iCent = 0; iCent < 3; ++iCent) {
+        delete McPTRawD0JetBefore[iCent];
+        delete McPTRawD0JetAfter[iCent];
+
+        McPTRawD0JetBefore[iCent] =
+            (TH1D*) McPTRawD0Jet[iCent]->Clone(
+                Form("McPTRawD0JetBefore_%d", iCent));
+
+        McPTRawD0JetAfter[iCent] =
+            (TH1D*) McPTRawD0Jet[iCent]->Clone(
+                Form("McPTRawD0JetAfter_%d", iCent));
+
+        McPTRawD0JetBefore[iCent]->Reset();
+        McPTRawD0JetAfter[iCent]->Reset();
+
+        McPTRawD0JetBefore[iCent]->SetDirectory(nullptr);
+        McPTRawD0JetAfter[iCent]->SetDirectory(nullptr);
+
+        delete hCrossTruthPt[iCent];
+
+        hCrossTruthPt[iCent] =
+            (TH1D*) rurResponse[iCent].Htruth()->Clone(
+                Form("hCrossTruthPt_%d", iCent));
+
+        hCrossTruthPt[iCent]->Reset();
+        hCrossTruthPt[iCent]->SetDirectory(nullptr);
+
+        if (Unfold2D) {
+            for (int iVar = 0; iVar < 1 + nAngularities; ++iVar) {
+                delete hCrossTruth2D[iCent][iVar];
+
+                hCrossTruth2D[iCent][iVar] =
+                    (TH2D*) rurResponse2D[iCent][iVar].Htruth()->Clone(
+                        Form("hCrossTruth2D_%d_%d", iCent, iVar));
+
+                hCrossTruth2D[iCent][iVar]->Reset();
+                hCrossTruth2D[iCent][iVar]->SetDirectory(nullptr);
+            }
+        }
+    }
+}
 
     //Load data to rescale the MC
     if(!UseCachedRM) LoadDataRealParams();
@@ -7934,7 +8959,7 @@ outputFileMachine = OutputFile;
 
     can->Clear();
     DrawAllBinning();
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
     can->Clear();
 
     can->Divide(3, 2);
@@ -8007,7 +9032,7 @@ outputFileMachine = OutputFile;
 
     }
 
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
 
     can->Clear();
     can->SetCanvasSize(1200, 800);
@@ -8097,7 +9122,7 @@ outputFileMachine = OutputFile;
         leg2->AddEntry(pureFonll, "c-quark FONLL", "l");
         leg2->Draw();
     }
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
     can->Clear();
     can->SetCanvasSize(1200, 400);
 
@@ -8145,7 +9170,7 @@ outputFileMachine = OutputFile;
     double recoJetVarZMin[3] = {zRecoBinsVec[0].front(), zRecoBinsVec[1].front(), zRecoBinsVec[2].front()};
     double recoJetVarZMax[3] = {zRecoBinsVec[0].back(), zRecoBinsVec[1].back(), zRecoBinsVec[2].back()};
 
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
     can->Clear();
     DrawKinEff2D(KinEff2DpTZ[2], KinEff2DpTZ[0], KinEff2DpTZ[1], KinEff2DpTZCut,KinEff2DpTZZCut, trueJetVarZMin, trueJetVarZMax, recoJetVarZMin,recoJetVarZMax, can);
 
@@ -8204,7 +9229,7 @@ outputFileMachine = OutputFile;
         FakeEffEta[iCent].GetPaintedGraph()->SetMaximum(0.2);
 
     }
-    can->SaveAs(outPdf);
+    SavePdfPage(can);
 }
     can->Clear();
 
@@ -8222,7 +9247,9 @@ outputFileMachine = OutputFile;
                 }
             }
         }
-
+    if (SaveNegativeBinsPdf && Unfold2D) {
+        SaveNegativeBinsDiagnostic();
+    }
 
     plotRcp1D(can);
     plotRcp2D(can);
@@ -8230,6 +9257,19 @@ outputFileMachine = OutputFile;
     if(!UseCachedRM) plotResolution(can);
 
     can->SaveAs(outPdf+"]");
+
+    if (gPdfCanvasFile) {
+
+        cout << "[canvas-save] Saved "
+            << gPdfCanvasPage
+            << " canvas pages to "
+            << gPdfCanvasFile->GetName()
+            << endl;
+
+        gPdfCanvasFile->Close();
+        delete gPdfCanvasFile;
+        gPdfCanvasFile = nullptr;
+    }
 
     //Změním rozměr canvasu
     can->SetCanvasSize(1200, 800);

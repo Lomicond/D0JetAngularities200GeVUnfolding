@@ -8,7 +8,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import uproot
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_SCAN_DIR = os.path.join(SCRIPT_DIR, "scanJetsReco")
+DEFAULT_SCAN_DIR = os.path.join(SCRIPT_DIR, "scanJetsReco_5_10")
 DEFAULT_SUMMARY = os.path.join(DEFAULT_SCAN_DIR, "summary.tsv")
 DEFAULT_OUTPUT_DIR = os.path.join(DEFAULT_SCAN_DIR, "Output")
 DEFAULT_OUT = os.path.join(DEFAULT_SCAN_DIR, "jetsReco_results.pdf")

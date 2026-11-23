@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# -------------------------
+# D0 pT range for Machine()
+# -------------------------
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 MIN_PT_D0 MAX_PT_D0"
+  echo "Example: $0 5 10"
+  exit 1
+fi
+
+MIN_PT_D0="$1"
+MAX_PT_D0="$2"
+
+if ! [[ "${MIN_PT_D0}" =~ ^[0-9]+$ && "${MAX_PT_D0}" =~ ^[0-9]+$ ]]; then
+  echo "[error] MIN_PT_D0 and MAX_PT_D0 must be integers."
+  exit 1
+fi
+
+if (( MIN_PT_D0 >= MAX_PT_D0 )); then
+  echo "[error] MIN_PT_D0 must be smaller than MAX_PT_D0."
+  exit 1
+fi
+
 # ============================================================
 # Binning systematic scan: pTD
 #
@@ -8,7 +30,7 @@ set -euo pipefail
 #   config.h, config_hist.h, Unfolding/Machine.C, Data/...
 #
 # Recommended run command:
-#   bash Systematics/Binning/08_BinningPTD.sh
+#   ./Systematics/Binning/08_BinningPTD.sh 5 10
 # ============================================================
 
 # -------------------------
@@ -41,15 +63,17 @@ INPUT_FILE="${PROJECT_DIR}/Data/Output_real_final_01022026.root"
 # All other binnings remain exactly as defined in config.h/config_hist.h.
 PTD_INDEX=5
 
-PTD_TRUE_START_LIST=(0 0.3 0.5)
-PTD_RECO_START_LIST=(0 0.3 0.5)
+#PTD_TRUE_START_LIST=(0 0.3 0.5)
+#PTD_RECO_START_LIST=(0 0.3 0.5)
+PTD_TRUE_START_LIST=(0)
+PTD_RECO_START_LIST=(0)
 PTD_RECO_ALLOWED_WIDTHS=(0.1 0.15 0.2 0.3)
 PTD_RECO_MIN_WIDTH=0.1
 PTD_RIGHT_EDGE=1.01
 PTD_LAST_BIN_LEFT=0.9   # The reco last bin is kept fixed as 0.9 -> 1.01.
 
 # Edge nudging.
-# According to the agreed setting for pTD, use a coherent shift of 0.1.
+# According to the agreed setting for pTD, use a coherent shift of 0.01.
 # The shift is applied only to middle internal reco edges.
 # The first edge, the last edge, and the edge before the last edge are kept fixed.
 # This keeps the last bin stable and avoids pathological tiny last bins.
@@ -66,8 +90,6 @@ FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
 SAVED_ITER=4
-MIN_PT_D0=1
-MAX_PT_D0=10
 USE_PRIOR_SHAPE_WEIGHTING=0
 SYSTEMATIC_SPLOT=0
 
@@ -77,13 +99,17 @@ MAX_TOTAL_RUNS=0
 # -------------------------
 # Output location
 # -------------------------
-SCAN_DIR="${SCRIPT_DIR}/scanPTD"
+SCAN_DIR="${SCRIPT_DIR}/scanPTD_${MIN_PT_D0}_${MAX_PT_D0}"
 OVR_DIR="${SCAN_DIR}/overrides"
 RUN_DIR="${SCAN_DIR}/runs"
 SUMMARY="${SCAN_DIR}/summary.tsv"
 STABILITY="${SCAN_DIR}/stability.tsv"
 
-mkdir -p "${OVR_DIR}" "${RUN_DIR}" "${PROJECT_DIR}/OutputPdf"
+mkdir -p \
+  "${OVR_DIR}" \
+  "${RUN_DIR}" \
+  "${SCAN_DIR}/Output" \
+  "${PROJECT_DIR}/OutputPdf"
 
 # =========================
 # Helper functions
@@ -179,6 +205,12 @@ write_ptd_override() {
 {
   cout << "[override] pTD reco edges: ${reco_edges}" << endl;
   cout << "[override] pTD true edges: ${true_edges}" << endl;
+
+  // Binning systematic: reconstruct the response from the fine cache.
+  // Jet-pT and all other observable binnings stay nominal from config.h.
+  UseCachedRM = true;
+  FillStandardRM = false;
+  FillCacheRM = false;
 
   for (int ic = 0; ic < nCentralityBins; ++ic) {
     angRecoBinsVec[ic][${PTD_INDEX}].clear();

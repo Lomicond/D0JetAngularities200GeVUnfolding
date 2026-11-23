@@ -28,3 +28,30 @@ Data
 *tsv
 *.zip
 *.giosave*
+
+# Local history and build products
+/.history/
+__pycache__/
+*.pyc
+*_ACLiC_dict*
+/Machine2_FineUnfold.log
+
+# Generated results and bundles
+/RhoInvest/output/
+/Systematics/EffectiveRadius/
+/PriorExplorerBundles/
+/FinalPlot_5_10/
+/Systematics/FinalPlots_5_10/
+/jetConstituents_plots/
+/rho_plots/
+/prior_explorer/PriorExplorer_v3.zip
+
+# Test outputs; retain Python tools in Test/Drawing
+/Test/Output/
+/Test/stability.tsv
+/Test/Drawing/*.root
+/Test/Drawing/*.pdf
+/Test/Drawing/*.json
+
+# Editor lock files
+.~lock.*#

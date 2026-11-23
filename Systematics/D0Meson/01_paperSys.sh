@@ -186,7 +186,7 @@ fi
 # =========================
 # PHASE 1: create paperSys sPlot outputs
 # =========================
-echo "========== PHASE 1: Simple_splot.C for paper D0-reco systematics =========="
+echo "========== PHASE 1: Simple_splot.C for paper D0-reco systematics (${SPLOT_MIN_PT_D0}-${SPLOT_MAX_PT_D0} GeV/c) =========="
 
 SPLOT_ACLIC_SUFFIX="++"
 
@@ -230,7 +230,7 @@ done
 # =========================
 # PHASE 2: unfold all paperSys variants
 # =========================
-echo "========== PHASE 2: Machine.C for paper D0-reco systematics =========="
+echo "========== PHASE 2: Machine.C for paper D0-reco systematics (${MIN_PT_D0}-${MAX_PT_D0} GeV/c) =========="
 
 run_counter=0
 runs_started=0

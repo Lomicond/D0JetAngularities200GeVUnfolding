@@ -1,6 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# -------------------------
+# D0 pT range for Machine()
+# -------------------------
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 MIN_PT_D0 MAX_PT_D0"
+  echo "Example: $0 5 10"
+  exit 1
+fi
+
+MIN_PT_D0="$1"
+MAX_PT_D0="$2"
+
+if ! [[ "${MIN_PT_D0}" =~ ^[0-9]+$ && "${MAX_PT_D0}" =~ ^[0-9]+$ ]]; then
+  echo "[error] MIN_PT_D0 and MAX_PT_D0 must be integers."
+  exit 1
+fi
+
+if (( MIN_PT_D0 >= MAX_PT_D0 )); then
+  echo "[error] MIN_PT_D0 must be smaller than MAX_PT_D0."
+  exit 1
+fi
+
+# Simple_splot is always run over the full D0-pT range.
+SPLOT_MIN_PT_D0=1
+SPLOT_MAX_PT_D0=10
+
 # ============================================================
 # Jet-reconstruction systematic scan
 #
@@ -52,9 +78,6 @@ CHECK_MC_INPUTS=1
 # -------------------------
 # Simple_splot() and Machine() parameters
 # -------------------------
-MIN_PT_D0=1
-MAX_PT_D0=10
-
 FONLL_JET=1
 CUT_NEG=1
 MIN_JET_PT_RECO_CUT=-30
@@ -69,7 +92,7 @@ MAX_TOTAL_RUNS=0
 # -------------------------
 # Output location
 # -------------------------
-SCAN_DIR="${SCRIPT_DIR}/scanJetsReco"
+SCAN_DIR="${SCRIPT_DIR}/scanJetsReco_${MIN_PT_D0}_${MAX_PT_D0}"
 OVR_DIR="${SCAN_DIR}/overrides"
 RUN_DIR="${SCAN_DIR}/runs"
 SPLOT_LOG_DIR="${SCAN_DIR}/splot_logs"
@@ -111,6 +134,7 @@ jets_reco_suffix() {
 
 jets_reco_mc_file() {
   case "$1" in
+    0) printf '%s/Data/Output_sim_konecny_3032026.root' "${PROJECT_DIR}" ;;  
     21) printf '%s/Data/Output_MC_MidLow_trackEff_05052026.root' "${PROJECT_DIR}" ;;
     22) printf '%s/Data/Output_MC_MidLow_nHitsFit13_06052026.root' "${PROJECT_DIR}" ;;
     23) printf '%s/Data/Output_MC_MidLow_nHitsFit17_06052026.root' "${PROJECT_DIR}" ;;
@@ -173,7 +197,7 @@ fi
 # =========================
 # PHASE 1: prepare sWeights for all jet-reconstruction variations
 # =========================
-echo "========== PHASE 1: Simple_splot.C for jet-reconstruction systematics =========="
+echo "========== PHASE 1: Simple_splot.C for jet-reconstruction systematics (${SPLOT_MIN_PT_D0}-${SPLOT_MAX_PT_D0} GeV/c) =========="
 
 SPLOT_ACLIC_SUFFIX="++"
 
@@ -191,7 +215,7 @@ for SYS in "${SYS_CODES[@]}"; do
 
   rm -f "${DONE}"
 
-  SPLOT_CMD="${SPLOT_MACRO}${SPLOT_ACLIC_SUFFIX}( \"${INPUT_FILE}\", \"Output\", \"Output2\", ${MIN_PT_D0}, ${MAX_PT_D0}, ${SYS} )"
+  SPLOT_CMD="${SPLOT_MACRO}${SPLOT_ACLIC_SUFFIX}( \"${INPUT_FILE}\", \"Output\", \"Output2\", ${SPLOT_MIN_PT_D0}, ${SPLOT_MAX_PT_D0}, ${SYS} )"
   printf '%s\n' "root -l -b -q '${SPLOT_CMD}'" > "${SPLOT_LOG_DIR}/splot_sys${SYS}_${LABEL}_command.txt"
 
   echo "[sPlot] sys=${SYS} (${LABEL}), suffix=${SUFFIX}"
@@ -217,7 +241,7 @@ done
 # =========================
 # PHASE 2: unfolding for all jet-reconstruction variations
 # =========================
-echo "========== PHASE 2: Machine.C for jet-reconstruction systematics =========="
+echo "========== PHASE 2: Machine.C for jet-reconstruction systematics (${MIN_PT_D0}-${MAX_PT_D0} GeV/c) =========="
 
 run_counter=0
 runs_started=0

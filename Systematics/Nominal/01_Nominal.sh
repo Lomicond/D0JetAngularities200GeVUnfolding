@@ -1,6 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# -------------------------
+# D0 pT range for Machine()
+# -------------------------
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 MIN_PT_D0 MAX_PT_D0"
+  echo "Example: $0 5 10"
+  exit 1
+fi
+
+MIN_PT_D0="$1"
+MAX_PT_D0="$2"
+
+if ! [[ "${MIN_PT_D0}" =~ ^[0-9]+$ && "${MAX_PT_D0}" =~ ^[0-9]+$ ]]; then
+  echo "[error] MIN_PT_D0 and MAX_PT_D0 must be integers."
+  exit 1
+fi
+
+if (( MIN_PT_D0 >= MAX_PT_D0 )); then
+  echo "[error] MIN_PT_D0 must be smaller than MAX_PT_D0."
+  exit 1
+fi
+
+# Simple_splot is always run over the full D0-pT range.
+SPLOT_MIN_PT_D0=1
+SPLOT_MAX_PT_D0=10
+
 # ============================================================
 # Nominal run
 #
@@ -49,8 +75,6 @@ RUN_ID="r000001"
 # -------------------------
 # Simple_splot() and Machine() parameters
 # -------------------------
-MIN_PT_D0=1
-MAX_PT_D0=10
 
 FONLL_JET=1
 CUT_NEG=1
@@ -63,7 +87,7 @@ USE_PRIOR_SHAPE=0
 # -------------------------
 # Output location
 # -------------------------
-SCAN_DIR="${SCRIPT_DIR}/scanNominal"
+SCAN_DIR="${SCRIPT_DIR}/scanNominal_${MIN_PT_D0}_${MAX_PT_D0}"
 OVR_DIR="${SCAN_DIR}/overrides"
 RUN_DIR="${SCAN_DIR}/runs"
 SPLOT_LOG_DIR="${SCAN_DIR}/splot_logs"
@@ -118,7 +142,7 @@ fi
 # =========================
 # PHASE 1: nominal sWeights
 # =========================
-echo "========== PHASE 1: Simple_splot.C nominal =========="
+echo "========== PHASE 1: Simple_splot.C nominal (${SPLOT_MIN_PT_D0}-${SPLOT_MAX_PT_D0} GeV/c) =========="
 
 SPLOG="${SPLOT_LOG_DIR}/splot_sys${SYSTEMATIC_SPLOT}_${LABEL}.log"
 DONE="${SPLOT_LOG_DIR}/splot_sys${SYSTEMATIC_SPLOT}_${LABEL}.done"
@@ -128,7 +152,7 @@ if [[ -f "${DONE}" ]] && nominal_splot_outputs_exist; then
 else
   rm -f "${DONE}"
 
-  SPLOT_CMD="${SPLOT_MACRO}++( \"${INPUT_FILE}\", \"Output\", \"Output2\", ${MIN_PT_D0}, ${MAX_PT_D0}, ${SYSTEMATIC_SPLOT} )"
+  SPLOT_CMD="${SPLOT_MACRO}++( \"${INPUT_FILE}\", \"Output\", \"Output2\", ${SPLOT_MIN_PT_D0}, ${SPLOT_MAX_PT_D0}, ${SYSTEMATIC_SPLOT} )"
   printf '%s\n' "root -l -b -q '${SPLOT_CMD}'" > "${SPLOT_LOG_DIR}/splot_sys${SYSTEMATIC_SPLOT}_${LABEL}_command.txt"
 
   echo "[sPlot] systematicSPlot=${SYSTEMATIC_SPLOT} (${LABEL})"
@@ -155,7 +179,7 @@ fi
 # =========================
 # PHASE 2: nominal unfolding
 # =========================
-echo "========== PHASE 2: Machine.C nominal =========="
+echo "========== PHASE 2: Machine.C nominal (${MIN_PT_D0}-${MAX_PT_D0} GeV/c) =========="
 
 if run_is_complete "${RUN_ID}"; then
   echo "[Machine resume] ${RUN_ID} nominal is already complete -> skip"
