@@ -34,6 +34,8 @@
 #include "TEfficiency.h"
 #include <fstream>
 
+#include "TMatrixD.h"
+
                     //Centrality ranges
 std::vector<std::vector<int>> centrality = {{0, 10}, {10, 40}, {40, 80}}; 		                        //Centrality ranges
 std::vector<std::vector<double>> momenta = {{0,1},{1,1.5},{1.5,2},{2,3},{3,5},{5,10}};
@@ -45,7 +47,7 @@ Int_t GivenIter = 4; //(3 => 3-1 = 2 v poli, převedeno v kodu)
 //const Int_t nRecoBins = 8;
 //const Int_t nMcBins = 6;
 //int NumOfBin[6] = {nRecoBins,nRecoBins,nRecoBins,nRecoBins,nRecoBins,nRecoBins};
-const Int_t DividedMcDataBy = 1;
+const Int_t DividedMcDataBy = 10;
 //bool RewriteWeights = true;
 
 const char *outputFile;
@@ -69,12 +71,13 @@ const Int_t iNConst = 6;
 const Int_t iLambda10 = 7;
 
 //Histograms
-TH1D Unfolded2D_X[7][3];
+TH1D Unfolded2D_X[nAngularities + 1][3];
+
 TH1D Unfolded2D_Y[3];
 TH1D Unfolded1D[3];
-TH1D Unfolded2DRatio[7][3];
+TH1D Unfolded2DRatio[nAngularities + 1][3];
 TH1D Unfolded1DRatio[3];
-TH1D Unfolded2DRatioVar[7][3];
+TH1D Unfolded2DRatioVar[nAngularities + 1][3];
 
 TH2D* hCacheMatchPt[3];
 TH1D* hCacheMissPt[3];
@@ -84,9 +87,9 @@ THnSparseD* hCacheMatchPtZ[3];
 TH2D* hCacheMissPtZ[3];
 TH2D* hCacheFakePtZ[3];
 
-THnSparseD* hCacheMatchPtAng[3][6];
-TH2D* hCacheMissPtAng[3][6];
-TH2D* hCacheFakePtAng[3][6];
+THnSparseD* hCacheMatchPtAng[3][nAngularities];
+TH2D* hCacheMissPtAng[3][nAngularities];
+TH2D* hCacheFakePtAng[3][nAngularities];
 
 
 
@@ -101,7 +104,7 @@ bool crossClosure = true;
 //TString McJetsFileData = "./Data/Output_sim_final_01022026_slimfix.root"; //inclusive
 //TString McJetsFileData = "./Data/Output_sim_cf_1902206_slim.root"; //inclusive
 //TString McJetsFileData = "./Data/Output_sim_konecny_3032026.root"; //inclusive
-TString McJetsFileData = "./Data/Output_new_MC_dca1_14102026.root"; //inclusive
+TString McJetsFileData = "./Data/Output_test_final2.root"; //inclusive
 //TString McJetsFileData = "./Data/Output_testTrue.root"; //inclusive
 
 
@@ -115,7 +118,7 @@ TString D0SpectraBeforeShift = "./Data/new/D0_Spectra_Run14_HFT_beforePtShift.ro
 
 //TString RealJetsFileData = "./Data/Output_real_final_01022026.root"; //inclusive
 //TString RealJetsFileData = "./Data/Output_new_dca1_13102026.root";
-TString RealJetsFileData = "./Data/Output_noOcu_real_22112026.root";
+TString RealJetsFileData = "./Data/REAL_FINAL_23112026.root";
 
 
 //TString RealJetsFileData = "./Data/Output_pionmassreal_21092025.root"; //inclusive
@@ -240,7 +243,7 @@ TString outRoot = "Output";
 // The ROOT file is intended for later extraction/replotting in Python.
 bool SavePdfCanvases = false;
 
-TH1D hVarReduced_Y_ang[7][3][15];
+TH1D hVarReduced_Y_ang[nAngularities + 1][3][15];
 
 TString _sys;
 //static std::ofstream fout("stability.txt", std::ios::app);
@@ -259,13 +262,15 @@ TH1D hUnfoldedPt[3][15]; //NIter
 TH1D hBackfoldedPt[3][15]; //NIter
 ////
 //Cent + Variables
-TH2D hRealData2D[3][7];
-TH2D hMcReco2D[3][7];
-TH2D hMcTrue2D[3][7];
-TH2D hUnfolded2D[3][7][15]; //NIter
+TH2D hRealData2D[3][nAngularities + 1];
+TH2D hMcReco2D[3][nAngularities + 1];
+TH2D hMcTrue2D[3][nAngularities + 1];
+TH2D hUnfolded2D[3][nAngularities + 1][15];
+// Statistical covariance of the unnormalized projection onto observable Y.
+TMatrixD covVarReducedY[3][nAngularities + 1][15];
 //TH1D hRcpPtVarReduced_Y[numOfComb][nVar][nIter];
-TH1D hRcpPtVarReduced_Y[3][7][15]; //NIter
-TH1D hVarReduced_Y[3][7][15]; //NIter
+TH1D hRcpPtVarReduced_Y[3][nAngularities + 1][15];
+TH1D hVarReduced_Y[3][nAngularities + 1][15];
 
 THnSparseF* hResp4D[3];
 THnSparseF* hResp4DWeighted[3];
@@ -273,36 +278,49 @@ THnSparseF* hResp4DWeighted[3];
 //Simple_splot
 Int_t _systematicSPlot = 0;
 
-RooUnfoldResponse rurResponse2D[3][8] = {
+RooUnfoldResponse rurResponse2D[3][nAngularities + 1] = {
     {RooUnfoldResponse("dummy0", "dummy0"), RooUnfoldResponse("dummy1", "dummy1"), RooUnfoldResponse("dummy2", "dummy2"),
      RooUnfoldResponse("dummy3", "dummy3"), RooUnfoldResponse("dummy4", "dummy4"), RooUnfoldResponse("dummy5", "dummy5"),
-     RooUnfoldResponse("dummy6", "dummy6"), RooUnfoldResponse("dummy7", "dummy7")},
+     RooUnfoldResponse("dummy6", "dummy6"), RooUnfoldResponse("dummy7", "dummy7"), RooUnfoldResponse("dummy8", "dummy8")},
     {RooUnfoldResponse("dummy0_2", "dummy0_2"), RooUnfoldResponse("dummy1_2", "dummy1_2"), RooUnfoldResponse("dummy2_2", "dummy2_2"),
      RooUnfoldResponse("dummy3_2", "dummy3_2"), RooUnfoldResponse("dummy4_2", "dummy4_2"), RooUnfoldResponse("dummy5_2", "dummy5_2"),
-     RooUnfoldResponse("dummy6_2", "dummy6_2"), RooUnfoldResponse("dummy7_2", "dummy7_2")},
+     RooUnfoldResponse("dummy6_2", "dummy6_2"), RooUnfoldResponse("dummy7_2", "dummy7_2"), RooUnfoldResponse("dummy8_2", "dummy8_2")},
     {RooUnfoldResponse("dummy0_3", "dummy0_3"), RooUnfoldResponse("dummy1_3", "dummy1_3"), RooUnfoldResponse("dummy2_3", "dummy2_3"),
      RooUnfoldResponse("dummy3_3", "dummy3_3"), RooUnfoldResponse("dummy4_3", "dummy4_3"), RooUnfoldResponse("dummy5_3", "dummy5_3"),
-     RooUnfoldResponse("dummy6_3", "dummy6_3"), RooUnfoldResponse("dummy7_3", "dummy7_3")}
+     RooUnfoldResponse("dummy6_3", "dummy6_3"), RooUnfoldResponse("dummy7_3", "dummy7_3"), RooUnfoldResponse("dummy8_3", "dummy8_3")}
 };
 RooUnfoldResponse rurResponse2DTest[3] = { RooUnfoldResponse("dummy2D0", "dummy2D0"), RooUnfoldResponse("dummy2D1", "dummy2D1"), RooUnfoldResponse("dummy2D2", "dummy2D2")};
 RooUnfoldResponse rurResponse2DTestW[3] = { RooUnfoldResponse("dummy2D0W", "dummy2D0W"), RooUnfoldResponse("dummy2D1W", "dummy2D1W"), RooUnfoldResponse("dummy2D2W", "dummy2D2W")};
 
+
+const Bool_t histRegistrationBeforeEff = []() {
+    const Bool_t previous = TH1::AddDirectoryStatus();
+    TH1::AddDirectory(kFALSE);
+    return previous;
+}();
 //kin efficiency
 TEfficiency KinEff1D[3];
 TEfficiency KinEff2DpTZ[3][3];
 TEfficiency KinEff2DpTZCut[3];
 TEfficiency KinEff2DpTZZCut[3];
-TEfficiency KinEff2DAng[6][3][3];
-TEfficiency KinEff2DAngCut[6][3];
-TEfficiency KinEff2DAngPtCut[6][3];
+
+
+TEfficiency KinEff2DAng[nAngularities][3][3];
+TEfficiency KinEff2DAngCut[nAngularities][3];
+TEfficiency KinEff2DAngPtCut[nAngularities][3];
 
 TEfficiency KinEffEta[3];
 TEfficiency FakeEffEta[3];
 
+const Bool_t histRegistrationRestoredAfterEff = []() {
+    TH1::AddDirectory(histRegistrationBeforeEff);
+    return kTRUE;
+}();
+
 //resolutions
 //cent + variable + cuts
 // second dimension needs to hold indices up to 7 (2 + iLambda, iLambda in [0..5])
-TH1D *hResVar[3][8][5];
+TH1D *hResVar[3][nAngularities + 2][5];
 
 TH1D *HistReal_pTTemp[3];
 TH1D *hTruthPtTemp[3];
@@ -310,10 +328,10 @@ TH2D *HistReal_pTZTemp[3];
 TH2D *hTruthPTZTemp[3];
 TH2D *HistReal_ZLam[3];
 TH2D *hTruthZLam[3];
-TH2D *HistReal_pTAngTemp[3][6];
-TH2D *hTruthAngTemp[3][6];
+TH2D *HistReal_pTAngTemp[3][nAngularities];
+TH2D *hTruthAngTemp[3][nAngularities];
 
-TH2D hRealData2DD0Pt[3][5][7];
+TH2D hRealData2DD0Pt[3][5][nAngularities + 1];
 TH1D hRealData1D0Pt[3][5];
 TGraphAsymmErrors *hPaperD0Pt[3];
 TGraphErrors *hPaperD0PtBeforeShift[3];
@@ -374,8 +392,8 @@ vector<Double_t> angMcBinsVecCustom[nCentralityBins][nAngularities] = {
                 {-0.0001,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.075, 0.1, 0.15, 0.2, 1}, //l13
                 {-0.0001,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7,0.8, 1}, //l10.5
                 {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01}, //pTD
-                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
-                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 25.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 2.} //l10
 
         },
         {//Centrality 10-40%
@@ -384,9 +402,9 @@ vector<Double_t> angMcBinsVecCustom[nCentralityBins][nAngularities] = {
                 {-0.0001,0.0001, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 1}, //l12
                 {-0.0001,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.075, 0.1, 0.15, 0.2, 1}, //l13
                 {-0.0001,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1}, //l10.5
-                {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01} //pTD
-                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
-                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10                
+                {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01}, //pTD
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 25.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 2.} //l10
         },
         {//Centrality 40-80%
                 {-0.0001,0.0001, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3,0.4,0.5, 1}, //l11
@@ -394,9 +412,9 @@ vector<Double_t> angMcBinsVecCustom[nCentralityBins][nAngularities] = {
                 {-0.0001,0.0001, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3,0.4, 1}, //l12
                 {-0.0001,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.075, 0.1, 0.15, 0.2, 1}, //l13
                 {-0.0001,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1}, //l10.5
-                {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01} //pTD
-                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
-                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10                
+                {0, 0.3, 0.5, 0.65, 0.75, 0.85, 1.01}, //pTD
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 25.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 2.} //l10
         }
         
 /*
@@ -532,9 +550,9 @@ vector<Double_t> angRecoBinsVec[nCentralityBins][nAngularities] = {
                 {0, 0.0001, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.25, 0.325, 0.4}, //l12
                 {0,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.0625, 0.075, 0.175, 0.475, 1}, //l13
                 {0,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,0.7, 0.8, 1}, //l10.5
-                {0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.01} //pTD
-                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
-                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10
+                {0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.01}, //pTD
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 25.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 2.} //l10
 
         },
         {//Centrality 10-40%
@@ -543,9 +561,9 @@ vector<Double_t> angRecoBinsVec[nCentralityBins][nAngularities] = {
                 {0,0.0001, 0.025, 0.05, 0.075, 0.1, 0.125, 0.225, 0.325, 0.425, 0.525, 0.625, 0.8}, //l12
                 {0,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.0625, 0.1625, 0.2625, 0.4625, 0.8}, //l13
                 {0,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,0.7, 0.8, 1}, 
-                {0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.01}
-                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
-                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10
+                {0, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.01},
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 25.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 2.} //l10
         },
         {//Centrality 40-80%
                 {0,0.0001, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1}, //l11
@@ -553,9 +571,9 @@ vector<Double_t> angRecoBinsVec[nCentralityBins][nAngularities] = {
                 {0,0.0001, 0.025, 0.05, 0.075, 0.1, 0.2, 0.3, 0.5, 0.7, 1}, //l12
                 {0,0.0001, 0.0125, 0.025, 0.0375, 0.05, 0.0625, 0.1625, 0.2625, 0.4625, 0.8}, //l13
                 {0,0.0001, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6,0.7, 0.8, 1}, 
-                {0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.01}
-                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 20.5, 30.5, 50.5, 100.5, 200.5}, // Nconst
-                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 1.2, 1.5, 2.} //l10
+                {0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.01},
+                {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 7.5, 10.5, 15.5, 25.5, 200.5}, // Nconst
+                {0., 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1., 1.02, 1.05, 1.1, 2.} //l10
 
 
         },
@@ -649,7 +667,7 @@ TH1D *McPTRawD0JetBefore[3] = {nullptr, nullptr, nullptr};
 TH1D *McPTRawD0JetAfter[3]  = {nullptr, nullptr, nullptr};
 // Truth testovacího vzorku pro cross closure.
 TH1D *hCrossTruthPt[3] = {nullptr, nullptr, nullptr};
-TH2D *hCrossTruth2D[3][7] = {};
+TH2D *hCrossTruth2D[3][nAngularities + 1] = {};
 TH2D *McPTRawD0JetD0Meson[3];
 TH1D *hMeasuredD0MesonPt[3];
 TH1D *hMeasuredD0MesonPtRatio[3];
@@ -659,14 +677,15 @@ TH1D* HistD0PT_reweighted2[3];
 TH1D * jetPtCheck[3]; //biny podle ptMcBinsVecCustom
 TH1D * jetZ[3];
 //Jemné binování
-TH2D *hRealFine[3][7];
+TH2D *hRealFine[3][nAngularities + 1];
 
 Int_t nbins_[4]    = {250, 150, 250, 150};
 Double_t xmin_[4]  = {1, 0, 1, 0};
 Double_t xmax_[4]  = {25, 1.5, 25, 1.5};
 
 
-THnSparseD *hResponseFine4D[3][7];
+THnSparseD *hResponseFine4D[3][nAngularities + 1];
+
 
 TF1 * pureFonll;
 TF1 * pureFonllD0meson;
@@ -679,7 +698,7 @@ double nbinsjetpt_wide[njpt_bins_wide + 1] = {-10, -5, 0, 1, 2, 3, 6, 9, 12, 15,
 
 const int nz_bins_wide = 24;
 double nbinsz_wide[nz_bins_wide + 1] =  {-1000, -500, -100, -50, -20, -10, -5, -2.5, -2.0, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0, 2.5, 5, 10, 20, 50, 100, 500, 1000};
-TH2D hRealData2DCopy[3][7];
+TH2D hRealData2DCopy[3][nAngularities + 1];
 
 ////////////////////////////////////////
 TGraph *gDoub0, *gDoub1, *gDoub2, *gDoub3;
@@ -1113,6 +1132,8 @@ Int_t getVariable(TString var) {
     if (var == "#lambda^{1}_{3}") variable = 5;
     if (var == "#lambda^{1}_{0.5}") variable = 6;
     if (var == "p_{T}^{D}") variable = 7;
+    if (var == "N_{const}") variable = 8;
+    if (var == "#lambda^{1}_{0}") variable = 9;
 
     return  variable;
 
@@ -1595,10 +1616,10 @@ const Double_t Ncoll[nCentralityBins] = {952., 397., 58.};
 
 
 //centralities, variables, iterations
-double PrintCheckNumbers[3][8][16];
+double PrintCheckNumbers[3][nAngularities + 2][16];
 
-TH2D *hRespZ[8][3];
-TH2D *hRespZHighRes[8][3];
+TH2D *hRespZ[nAngularities + 2][3];
+TH2D *hRespZHighRes[nAngularities + 2][3];
 void Stejn2(TH2D &h2,const char* name = "Transf") {
 
     vector <Double_t> x_edges;
@@ -1786,13 +1807,16 @@ TH2D* ProjectRecoTrue2D(const RooUnfoldResponse* response,
     setAxis(axisGroupX, axisNameX, axisX, nBinsX);
     setAxis(axisGroupY, axisNameY, axisY, nBinsY);
 
+    const Bool_t previousAddDirectory = TH1::AddDirectoryStatus();
+    TH1::AddDirectory(kFALSE);
     TH2D* hOut = new TH2D(Form("h%s%s_vs_%s%s", axisGroupY.Data(), axisNameY.Data(),
                                axisGroupX.Data(), axisNameX.Data()),
                           Form("%s%s vs %s%s", axisGroupY.Data(), axisNameY.Data(),
                                axisGroupX.Data(), axisNameX.Data()),
                           nBinsX, axisX->GetXbins()->GetArray(),
                           nBinsY, axisY->GetXbins()->GetArray());
-
+    hOut->SetDirectory(0);
+    TH1::AddDirectory(previousAddDirectory);
     // Zdroje binů
     TH2D* hResp = (TH2D*) response->Hresponse();
 

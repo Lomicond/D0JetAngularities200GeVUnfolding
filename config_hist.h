@@ -5,7 +5,8 @@
 #include "TLine.h"
 //include congif.h
 #include "config.h"
-
+#include <algorithm>
+#include <cmath>
 
 #endif // CONFIG_H
 
@@ -13,7 +14,8 @@ struct StJetTreeStruct2
 {
     Double_t z_value;
     Double_t pT_value;
-    Double_t lambda_value[6];
+    //Double_t lambda_value[6];
+    Double_t lambda_value[nAngularities];
     Double_t s_weight_value;
     Double_t s_weight_error_value;
     Double_t centr_weight_value;
@@ -68,6 +70,7 @@ struct StJetTreeStruct
     float d0mass;
     float d0pt;
     float d0eta;
+    float d0rapidity;
     float gRefMultMc;
     float d0phi;
     float pionpt;
@@ -76,7 +79,7 @@ struct StJetTreeStruct
     float kaonpt;
     float kaoneta;
     float kaonphi;
-    float lambda[6];
+    float lambda[nAngularities];
 
 };
 /*
@@ -131,9 +134,11 @@ void assignTree(TTree *jetTree, StJetTreeStruct &mcJet, StJetTreeStruct &recoJet
     jetTree->SetBranchAddress("mcJetLambda1_3", &mcJet.lambda[3]);
     jetTree->SetBranchAddress("mcJetLambda1_0_5", &mcJet.lambda[4]);
     jetTree->SetBranchAddress("mcJetMomDisp", &mcJet.lambda[5]);
+    jetTree->SetBranchAddress("mcJetLambda1_0", &mcJet.lambda[iLambda10]);
     jetTree->SetBranchAddress("mcJetD0Z", &mcJet.d0z);
     jetTree->SetBranchAddress("mcD0Pt", &mcJet.d0pt);
     jetTree->SetBranchAddress("mcD0Eta", &mcJet.d0eta);
+    jetTree->SetBranchAddress("mcD0Rapidity", &mcJet.d0rapidity);
     jetTree->SetBranchAddress("gRefMult", &mcJet.gRefMultMc);
     jetTree->SetBranchAddress("mcJetEta", &mcJet.mcJetEta);
 
@@ -191,10 +196,11 @@ void assignTree(TTree *jetTree, StJetTreeStruct &mcJet, StJetTreeStruct &recoJet
     jetTree->SetBranchAddress(branchPrefix + "recoJetLambda1_3", &recoJet.lambda[3]);
     jetTree->SetBranchAddress(branchPrefix + "recoJetLambda1_0_5", &recoJet.lambda[4]);
     jetTree->SetBranchAddress(branchPrefix + "recoJetMomDisp", &recoJet.lambda[5]);
+    jetTree->SetBranchAddress(branchPrefix + "recoJetLambda1_0", &recoJet.lambda[iLambda10]);
     jetTree->SetBranchAddress(branchPrefix + "recoJetD0Z", &recoJet.d0z);
     jetTree->SetBranchAddress(branchPrefix + "recoJetEta", &recoJet.recoJetEta);
     jetTree->SetBranchAddress("mcSmearedD0Eta", &recoJet.RecoD0Eta);
-    jetTree->SetBranchAddress("mcSmearedJetEta", &recoJet.McRecoJetEta);
+    //jetTree->SetBranchAddress("mcSmearedJetEta", &recoJet.McRecoJetEta);
 
 
 
@@ -240,6 +246,7 @@ void assignTree2(TTree *jetTree, StJetTreeStruct2 &measured_)
     jetTree->SetBranchAddress("lambda1_3", &measured_.lambda_value[3]);
     jetTree->SetBranchAddress("lambda1_0_5", &measured_.lambda_value[4]);
     jetTree->SetBranchAddress("momDisp", &measured_.lambda_value[5]);
+    jetTree->SetBranchAddress("lambda1_0", &measured_.lambda_value[iLambda10]);
     jetTree->SetBranchAddress("sWeightSignal", &measured_.s_weight_value);
     //jetTree->SetBranchAddress("correctedWeight", &measured_.s_weight_value);
     jetTree->SetBranchAddress("sWeightSigLikelihood", &measured_.s_weight_error_value);
@@ -357,6 +364,51 @@ TH2D* MakeFlat2D(THnSparseF* H, const char* name="RMflat") {
     const Double_t angTrueMin = 0;
     const Double_t angTrueMax =  3;
 
+std::vector<Double_t> MakeAngularCacheEdges(int iAng)
+{
+    std::vector<Double_t> edges;
+
+    if (iAng == iNConst) {
+        // Integer multiplicity: one bin per constituent count.
+        for (int i = 0; i <= 200; ++i)
+            edges.push_back(0.5 + i);
+    } else {
+        // Preserve the narrow bin around zero.
+        edges.push_back(-0.0001);
+        edges.push_back(0.);
+        edges.push_back(0.0001);
+
+        // Original fine grid: step 0.0025, up to 3.
+        for (int i = 1; i <= 1200; ++i)
+            edges.push_back(i / 400.);
+    }
+
+    // Include every requested reco and truth edge.
+    for (int ic = 0; ic < nCentralityBins; ++ic) {
+        const std::vector<Double_t> &reco = angRecoBinsVec[ic][iAng];
+        const std::vector<Double_t> &truth = angMcBinsVecCustom[ic][iAng];
+
+        edges.insert(edges.end(), reco.begin(), reco.end());
+        edges.insert(edges.end(), truth.begin(), truth.end());
+    }
+
+    std::sort(edges.begin(), edges.end());
+
+    // Remove numerical duplicates while keeping strictly increasing edges.
+    std::vector<Double_t> uniqueEdges;
+    for (std::size_t i = 0; i < edges.size(); ++i) {
+        const Double_t edge = edges[i];
+
+        if (uniqueEdges.empty() ||
+            std::abs(edge - uniqueEdges.back()) > 1e-12) {
+            uniqueEdges.push_back(edge);
+        }
+    }
+
+    return uniqueEdges;
+}
+
+
 void HistogramInit(){
 
 
@@ -439,50 +491,75 @@ void HistogramInit(){
         hCacheFakePtZ[ic]->SetDirectory(0);
 
         // ---------- 2D pT-lambda ----------
-        for (int iAng = 0; iAng < nAngularities; iAng++) {
+        // ---------- 2D pT-observable cache ----------
+        for (int iAng = 0; iAng < nAngularities; ++iAng) {
+
+            const std::vector<Double_t> angEdges =
+                MakeAngularCacheEdges(iAng);
+
+            const Int_t nAngCache =
+                static_cast<Int_t>(angEdges.size()) - 1;
+
+            // Preserve the original uniform pT binning.
+            std::vector<Double_t> ptRecoEdges(nPtRecoCache + 1);
+            std::vector<Double_t> ptTrueEdges(nPtTrueCache + 1);
+
+            for (Int_t ib = 0; ib <= nPtRecoCache; ++ib) {
+                ptRecoEdges[ib] = ptRecoMin
+                    + (ptRecoMax - ptRecoMin) * ib / nPtRecoCache;
+            }
+
+            for (Int_t ib = 0; ib <= nPtTrueCache; ++ib) {
+                ptTrueEdges[ib] = ptTrueMin
+                    + (ptTrueMax - ptTrueMin) * ib / nPtTrueCache;
+            }
 
             Int_t nbinsAng[4] = {
-                nPtRecoCache,
-                nAngRecoCache,
-                nPtTrueCache,
-                nAngTrueCache
+                nPtRecoCache, nAngCache,
+                nPtTrueCache, nAngCache
             };
 
             Double_t xminAng[4] = {
-                ptRecoMin,
-                angRecoMin,
-                ptTrueMin,
-                angTrueMin
+                ptRecoMin, angEdges.front(),
+                ptTrueMin, angEdges.front()
             };
 
             Double_t xmaxAng[4] = {
-                ptRecoMax,
-                angRecoMax,
-                ptTrueMax,
-                angTrueMax
+                ptRecoMax, angEdges.back(),
+                ptTrueMax, angEdges.back()
             };
 
             hCacheMatchPtAng[ic][iAng] = new THnSparseD(
                 Form("hCacheMatchPtAng_cent%d_ang%d", ic, iAng),
-                Form("Matched pT-lambda cent %d ang %d; p_{T}^{reco}; #lambda^{reco}; p_{T}^{true}; #lambda^{true}", ic, iAng),
+                Form("Matched cent %d obs %d;"
+                    "p_{T}^{reco};observable^{reco};"
+                    "p_{T}^{true};observable^{true}", ic, iAng),
                 4, nbinsAng, xminAng, xmaxAng
             );
+
+            // Set variable edges before filling the sparse histogram.
+            hCacheMatchPtAng[ic][iAng]->SetBinEdges(0, &ptRecoEdges[0]);
+            hCacheMatchPtAng[ic][iAng]->SetBinEdges(1, &angEdges[0]);
+            hCacheMatchPtAng[ic][iAng]->SetBinEdges(2, &ptTrueEdges[0]);
+            hCacheMatchPtAng[ic][iAng]->SetBinEdges(3, &angEdges[0]);
             hCacheMatchPtAng[ic][iAng]->Sumw2();
 
             hCacheMissPtAng[ic][iAng] = new TH2D(
                 Form("hCacheMissPtAng_cent%d_ang%d", ic, iAng),
-                Form("Miss pT-lambda cent %d ang %d; p_{T}^{true}; #lambda^{true}", ic, iAng),
-                nPtTrueCache, ptTrueMin, ptTrueMax,
-                nAngTrueCache, angTrueMin, angTrueMax
+                Form("Miss cent %d obs %d;"
+                    "p_{T}^{true};observable^{true}", ic, iAng),
+                nPtTrueCache, &ptTrueEdges[0],
+                nAngCache, &angEdges[0]
             );
             hCacheMissPtAng[ic][iAng]->Sumw2();
             hCacheMissPtAng[ic][iAng]->SetDirectory(0);
 
             hCacheFakePtAng[ic][iAng] = new TH2D(
                 Form("hCacheFakePtAng_cent%d_ang%d", ic, iAng),
-                Form("Fake pT-lambda cent %d ang %d; p_{T}^{reco}; #lambda^{reco}", ic, iAng),
-                nPtRecoCache, ptRecoMin, ptRecoMax,
-                nAngRecoCache, angRecoMin, angRecoMax
+                Form("Fake cent %d obs %d;"
+                    "p_{T}^{reco};observable^{reco}", ic, iAng),
+                nPtRecoCache, &ptRecoEdges[0],
+                nAngCache, &angEdges[0]
             );
             hCacheFakePtAng[ic][iAng]->Sumw2();
             hCacheFakePtAng[ic][iAng]->SetDirectory(0);
@@ -507,9 +584,50 @@ void HistogramInit(){
 
         }
 
-        for (int j = 0; j < 7; j++) {
-            hRealFine[i][j] = new TH2D(Form("hRealFine_%d_%d", i, j), Form("hRealFine_%d_%d", i, j), 100, 0, 20, 150, 0, 1.5);
-            hResponseFine4D[i][j] = new THnSparseD(Form("hResponseFine4D_%d_%d", i, j), Form("hResponseFine4D_%d_%d", i, j), 4, nbins_, xmin_, xmax_);
+        for (int j = 0; j < nAngularities + 1; ++j) {
+            // Preserve the original settings for existing observables.
+            Int_t fineBins[4] = {
+                nbins_[0], nbins_[1], nbins_[2], nbins_[3]
+            };
+            Double_t fineMin[4] = {
+                xmin_[0], xmin_[1], xmin_[2], xmin_[3]
+            };
+            Double_t fineMax[4] = {
+                xmax_[0], xmax_[1], xmax_[2], xmax_[3]
+            };
+
+            int dataBins = 150;
+            double dataMin = 0.;
+            double dataMax = 1.5;
+
+            if (j == iNConst + 1) {
+                dataBins = 200;
+                dataMin = 0.5;
+                dataMax = 200.5;
+
+                fineBins[1] = fineBins[3] = 200;
+                fineMin[1] = fineMin[3] = 0.5;
+                fineMax[1] = fineMax[3] = 200.5;
+            } else if (j == iLambda10 + 1) {
+                dataBins = 200;
+                dataMax = 2.;
+
+                fineBins[1] = fineBins[3] = 200;
+                fineMin[1] = fineMin[3] = 0.;
+                fineMax[1] = fineMax[3] = 2.;
+            }
+
+            hRealFine[i][j] = new TH2D(
+                Form("hRealFine_%d_%d", i, j),
+                Form("hRealFine_%d_%d", i, j),
+                100, 0, 20, dataBins, dataMin, dataMax
+            );
+
+            hResponseFine4D[i][j] = new THnSparseD(
+                Form("hResponseFine4D_%d_%d", i, j),
+                Form("hResponseFine4D_%d_%d", i, j),
+                4, fineBins, fineMin, fineMax
+            );
         }
     }
 
@@ -609,7 +727,7 @@ void HistogramInit(){
         rurResponse2DTestW[iCent].Setup(HistReal_pTZTemp[iCent], hTruthPTZTemp[iCent]);
 
         //angularities
-        for (Int_t iLambda = 0; iLambda < 6; iLambda++) {
+        for (Int_t iLambda = 0; iLambda < nAngularities; iLambda++) {
 
             for (int ptJet = 0; ptJet < 5; ptJet++) {
                 hResVar[iCent][2+iLambda][ptJet] = new TH1D(Form("resdsfpVar%d_%d_PtJet_%d", iLambda, iCent, ptJet),

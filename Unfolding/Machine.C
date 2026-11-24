@@ -203,13 +203,15 @@ std::vector<TString> VecToTStringLines(const std::vector<T>& v,
 #include <sstream>
 #include <iomanip>
 
-static const char* kAngNames[6] = {
+static const char* kAngNames[nAngularities] = {
     "#lambda_{1}^{1}",
     "#lambda_{1.5}^{1}",
     "#lambda_{2}^{1}",
     "#lambda_{3}^{1}",
     "#lambda_{0.5}^{1}",
-    "p_{T}^{D}"
+    "p_{T}^{D}",
+    "N_{const}",
+    "#lambda_{0}^{1}"
 };
 
 static const char* kCentNames[3] = {
@@ -325,8 +327,40 @@ void CheckCacheCompatibility1D(const char* what,
         }
     }
 }
-void CheckAllCacheCompatibility()
+
+void CheckCacheAxisEdges(
+    const char *what,
+    const TAxis *axis,
+    const std::vector<Double_t> &finalBins)
 {
+    if (!axis || finalBins.size() < 2) {
+        throw std::runtime_error(
+            std::string("Invalid cache axis or final binning: ") + what);
+    }
+
+    for (std::size_t i = 0; i < finalBins.size(); ++i) {
+        const Double_t edge = finalBins[i];
+        Bool_t found = kFALSE;
+
+        // Include the upper edge of the last bin.
+        for (Int_t ib = 1; ib <= axis->GetNbins() + 1; ++ib) {
+            if (std::abs(axis->GetBinLowEdge(ib) - edge) < 1e-10) {
+                found = kTRUE;
+                break;
+            }
+        }
+
+        if (!found) {
+            std::cerr << "Incompatible cache: " << what
+                      << ", missing edge " << edge << std::endl;
+
+            throw std::runtime_error(
+                "Cache binning does not contain a requested edge");
+        }
+    }
+}
+
+void CheckAllCacheCompatibility(TFile *fCache){
 
 
     for (int iCent = 0; iCent < nCentralityBins; iCent++) {
@@ -347,16 +381,70 @@ void CheckAllCacheCompatibility()
                                   nZTrueCache, zTrueMin, zTrueMax,
                                   zMcBinsVecCustom[iCent]);
 
-        for (int iAng = 0; iAng < nAngularities; iAng++) {
+        for (int iAng = 0; iAng < nAngularities; ++iAng) {
 
+            THnSparseD *hMatch = dynamic_cast<THnSparseD*>(
+                fCache->Get(Form("hCacheMatchPtAng_cent%d_ang%d",
+                                iCent, iAng)));
 
-            CheckCacheCompatibility1D(Form("ang reco cent %d ang %d", iCent, iAng),
-                                      nAngRecoCache, angRecoMin, angRecoMax,
-                                      angRecoBinsVec[iCent][iAng]);
+            TH2D *hMiss = dynamic_cast<TH2D*>(
+                fCache->Get(Form("hCacheMissPtAng_cent%d_ang%d",
+                                iCent, iAng)));
 
-            CheckCacheCompatibility1D(Form("ang true cent %d ang %d", iCent, iAng),
-                                      nAngTrueCache, angTrueMin, angTrueMax,
-                                      angMcBinsVecCustom[iCent][iAng]);
+            TH2D *hFake = dynamic_cast<TH2D*>(
+                fCache->Get(Form("hCacheFakePtAng_cent%d_ang%d",
+                                iCent, iAng)));
+
+            if (!hMatch || !hMiss || !hFake) {
+                std::cerr << "Missing cache histograms: centrality "
+                        << iCent << ", observable " << iAng << std::endl;
+                throw std::runtime_error("Incomplete angularity cache");
+            }
+
+            if (hMatch->GetNdimensions() != 4) {
+                throw std::runtime_error("Expected a four-dimensional cache");
+            }
+
+            const std::vector<Double_t> &reco =
+                angRecoBinsVec[iCent][iAng];
+
+            const std::vector<Double_t> &truth =
+                angMcBinsVecCustom[iCent][iAng];
+
+            // Matched cache: reco pT, reco observable, true pT, true observable.
+            CheckCacheAxisEdges(
+                Form("matched reco pT, cent%d ang%d", iCent, iAng),
+                hMatch->GetAxis(0), ptRecoBinsVec[iCent]);
+
+            CheckCacheAxisEdges(
+                Form("matched reco observable, cent%d ang%d", iCent, iAng),
+                hMatch->GetAxis(1), reco);
+
+            CheckCacheAxisEdges(
+                Form("matched true pT, cent%d ang%d", iCent, iAng),
+                hMatch->GetAxis(2), ptMcBinsVecCustom[iCent]);
+
+            CheckCacheAxisEdges(
+                Form("matched true observable, cent%d ang%d", iCent, iAng),
+                hMatch->GetAxis(3), truth);
+
+            // Miss cache: true axes.
+            CheckCacheAxisEdges(
+                Form("miss pT, cent%d ang%d", iCent, iAng),
+                hMiss->GetXaxis(), ptMcBinsVecCustom[iCent]);
+
+            CheckCacheAxisEdges(
+                Form("miss observable, cent%d ang%d", iCent, iAng),
+                hMiss->GetYaxis(), truth);
+
+            // Fake cache: reco axes.
+            CheckCacheAxisEdges(
+                Form("fake pT, cent%d ang%d", iCent, iAng),
+                hFake->GetXaxis(), ptRecoBinsVec[iCent]);
+
+            CheckCacheAxisEdges(
+                Form("fake observable, cent%d ang%d", iCent, iAng),
+                hFake->GetYaxis(), reco);
         }
     }
 }
@@ -383,7 +471,7 @@ void DrawAllBinning()
     DrawVectorBlock(latex, xL, yL, "p_{T,Jet}:", ptMcBinsVecCustom[0], 12, 1);
     DrawVectorBlock(latex, xL, yL, "z:", zMcBinsVecCustom[0], 12, 2);
 
-    for (int ia = 0; ia < 6; ++ia) {
+    for (int ia = 0; ia < nAngularities; ++ia){
         DrawVectorBlock(latex, xL, yL, Form("%s:", kAngNames[ia]), angMcBinsVecCustom[0][ia], 12, 2);
     }
 
@@ -413,7 +501,7 @@ void DrawAllBinning()
         latex.DrawLatex(xR, yR, Form("%s", kCentNames[ic]));
         yR -= 0.032;
 
-        for (int ia = 0; ia < 6; ++ia) {
+        for (int ia = 0; ia < nAngularities; ++ia) {
             DrawVectorBlock(latex, xR + 0.02, yR, Form("%s:", kAngNames[ia]), angRecoBinsVec[ic][ia], 14, 2, 0.026, 0.006);
         }
 
@@ -655,6 +743,8 @@ void plotComparison(TCanvas *can,
     if (var == "#lambda^{1}_{3}") variable = 5;
     if (var == "#lambda^{1}_{0.5}") variable = 6;
     if (var == "p_{T}^{D}") variable = 7;
+    if (var == "N_{const}") variable = 8;
+    if (var == "#lambda^{1}_{0}") variable = 9;
 
 
     //vykreslím hResponse
@@ -1211,6 +1301,10 @@ for (int iter = 0; iter < nIter; iter++) {
             histN = 6;
         } else if (var == "p_{T}^{D}") {
             histN = 7;
+        } else if (var == "N_{const}") {
+            histN = 8;
+        } else if (var == "#lambda^{1}_{0}") {
+            histN = 9;
         }
 
         can->Divide(2, 2);
@@ -2649,6 +2743,44 @@ void plotComparison2D(TCanvas *can, const Int_t &iCent, TString var) {
         hUnfolded2D[iCent][variable][iter].GetXaxis()->SetTitle("p_{T,Jet} [GeV/c]");
         hUnfolded2D[iCent][variable][iter].GetYaxis()->SetTitle(var);
 
+        const TMatrixD cov2D = rubUnfolding2D[iter].Ereco(RooUnfold::kCovariance);
+
+        const TH2D &h2 = hUnfolded2D[iCent][variable][iter];
+        const int nx = h2.GetNbinsX();
+        const int ny = h2.GetNbinsY();
+
+        // Same pT selection as for hVarReduced_Y.
+        const int binMin = h2.GetXaxis()->FindBin(5.);
+        const int binMax = h2.GetXaxis()->FindBin(19.9);
+
+        // Flattened RooUnfold indices: x runs fastest, without under/overflow.
+        if (cov2D.GetNrows() != nx * ny ||
+            cov2D.GetNcols() != nx * ny) {
+            throw std::runtime_error("Unexpected 2D covariance dimensions");
+        }
+
+        TMatrixD &covY = covVarReducedY[iCent][variable][iter];
+        covY.ResizeTo(ny, ny);
+        covY.Zero();
+
+        for (int iy = 1; iy <= ny; ++iy) {
+            for (int jy = 1; jy <= ny; ++jy) {
+                double sum = 0.;
+
+                for (int ix = binMin; ix <= binMax; ++ix) {
+                    const int i = (ix - 1) + nx * (iy - 1);
+
+                    for (int jx = binMin; jx <= binMax; ++jx) {
+                        const int j = (jx - 1) + nx * (jy - 1);
+                        sum += cov2D(i, j);
+                    }
+                }
+
+                covY(iy - 1, jy - 1) = sum;
+            }
+        }
+
+
         PrintCheckNumbers[iCent][variable][iter + 1] = hUnfolded2D[iCent][variable][iter].Integral();
         hUnfolded2DCopy_X[iter] = *((TH1D *) hUnfolded2D[iCent][variable][iter].ProjectionX()->Clone(
                 Form("hUnfoldedPtCopy_X_%i_%i", iter, iCent)));
@@ -3133,7 +3265,11 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
         can->cd(1);
         gPad->SetLeftMargin(0.15);
         gPad->SetRightMargin(0.15);
-        TH2D Response2DRecoTrueVar = *ProjectRecoTrue2D(&rurResponse2D[iCent][variable], "reco", "y", "true", "y");
+        TH2D *tmpResponseVar = ProjectRecoTrue2D(&rurResponse2D[iCent][variable], "reco", "y", "true", "y");
+        TH2D Response2DRecoTrueVar(*tmpResponseVar);
+        Response2DRecoTrueVar.SetDirectory(0);
+        delete tmpResponseVar;
+
         Response2DRecoTrueVar.GetXaxis()->SetTitle(var + " ^{,reco}");
         Response2DRecoTrueVar.GetYaxis()->SetTitle(var + " ^{,true}");
         Stejn(&Response2DRecoTrueVar, TString("Response2DRecoTrueVar") + var + Form("_%i", iCent));
@@ -3143,7 +3279,12 @@ for (int iter = nIter - 1; iter >= 1; iter--) {
         can->cd(3);
         gPad->SetLeftMargin(0.15);
         gPad->SetRightMargin(0.15);
-        TH2D Response2DRecoTruePt = *ProjectRecoTrue2D(&rurResponse2D[iCent][variable], "reco", "x", "true", "x");
+        TH2D *tmpResponsePt = ProjectRecoTrue2D(&rurResponse2D[iCent][variable], "reco", "x", "true", "x");
+
+        TH2D Response2DRecoTruePt(*tmpResponsePt);
+        Response2DRecoTruePt.SetDirectory(0);
+        delete tmpResponsePt;
+
         Response2DRecoTruePt.GetXaxis()->SetTitle("p_{T,Jet}^{reco} [GeV/c]");
         Response2DRecoTruePt.GetYaxis()->SetTitle("p_{T,Jet}^{true} [GeV/c]");
         Stejn(&Response2DRecoTruePt, TString("Response2DRecoTruePt") + var + Form("_%i", iCent));
@@ -4430,7 +4571,7 @@ void plotRcp2D(TCanvas *can){
     tex.SetTextAlign(22);
 
     Int_t numOfComb = factorial(nCentralityBins) / (factorial(nCentralityBins - 2) * factorial(2));
-    Int_t nVar = 7;
+    Int_t nVar = nAngularities + 1;
     TH2D hRcpPtVar[numOfComb][nVar][nIter];
     TH2D hRcpPtVarDen[numOfComb][nVar][nIter];
     TH1D hRcpPtVar_X[numOfComb][nVar][nIter];
@@ -4455,10 +4596,19 @@ void plotRcp2D(TCanvas *can){
     for (int iCent  = 0; iCent < nCentralityBins; iCent++) {
         for (int iVar = 0; iVar < nVar; iVar++) {
             for (int iter = 0; iter < nIter; iter++) {
-                int binMin = hUnfolded2D[iCent][0][iter].GetXaxis()->FindBin(5);
-                int binMax = hUnfolded2D[iCent][0][iter].GetXaxis()->FindBin(19.9);
+            int binMin = hUnfolded2D[iCent][iVar][iter].GetXaxis()->FindBin(5.);
+            int binMax = hUnfolded2D[iCent][iVar][iter].GetXaxis()->FindBin(19.9);
                 hVarReduced_Y[iCent][iVar][iter] = *(TH1D *) hUnfolded2D[iCent][iVar][iter].ProjectionY(
                         Form("hVarReduced_Y_%i_%i_%i_%i", iCent, iCent, iVar, iter), binMin, binMax)->Clone(Form("hVarReduced_Y_clone_%d_%d_%d", iCent, iVar, iter));
+
+                    TH1D &hProj = hVarReduced_Y[iCent][iVar][iter];
+                    const TMatrixD &covY = covVarReducedY[iCent][iVar][iter];
+
+                    for (int ib = 1; ib <= hProj.GetNbinsX(); ++ib) {
+                        hProj.SetBinError(
+                            ib, std::sqrt(std::max(0., covY(ib - 1, ib - 1)))
+                        );
+                    }
             }
         }
     }
@@ -4702,10 +4852,18 @@ void plotFinalComp(TCanvas *can, const char *ScanDir = "default") {
     legend->SetTextSize(0.015);
 
 
-    TString Variables[8] = { "p_{T}", "(p_{T},z)", "(p_{T},#lambda_{1}^{1})",
-                             "(p_{T},#lambda_{1.5}^{1})", "(p_{T},#lambda_{2}^{1})",
-                             "(p_{T},#lambda_{3}^{1})", "(p_{T},#lambda_{0.5}^{1})", "(p_{T},p_{T}^{D})" };
-
+    TString Variables[nAngularities + 2] = {
+        "p_{T}",
+        "(p_{T},z)",
+        "(p_{T},#lambda_{1}^{1})",
+        "(p_{T},#lambda_{1.5}^{1})",
+        "(p_{T},#lambda_{2}^{1})",
+        "(p_{T},#lambda_{3}^{1})",
+        "(p_{T},#lambda_{0.5}^{1})",
+        "(p_{T},p_{T}^{D})",
+        "(p_{T},N_{const})",
+        "(p_{T},#lambda_{0}^{1})"
+    };
 
 
     //create results file
@@ -4762,7 +4920,7 @@ void plotFinalComp(TCanvas *can, const char *ScanDir = "default") {
         Unfolded2D_Y[iCent].GetYaxis()->SetRangeUser(1e-5, 1);
         //Unfolded2D_Y[iCent].Write();
 
-        for (int iVar = 0; iVar < 7; iVar++) {
+        for (int iVar = 0; iVar < nAngularities + 1; iVar++) {
           //  if (iVar >0) continue; // TO CHANGE
 
 
@@ -4813,7 +4971,7 @@ void plotFinalComp(TCanvas *can, const char *ScanDir = "default") {
         Unfolded1DRatio[iCent].Draw("");
         Unfolded1DRatio[iCent].GetYaxis()->SetRangeUser(-1.0, 1.0);
 
-        for (int iVar = 0; iVar < 7; iVar++) {
+        for (int iVar = 0; iVar < nAngularities + 1; iVar++) {
             //if (iVar >0) continue; // TO CHANGE
 
             can->cd(iCent + 4);
@@ -4943,7 +5101,7 @@ fOutput->Close();
     fMach->cd();
     
     TH1D _Unfolded1D[3];
-    TH1D _Unfolded2D_X[7][3];
+    TH1D _Unfolded2D_X[nAngularities + 1][3];
 
  for (int iCent = 0; iCent < 3; iCent++) {
 
@@ -4968,7 +5126,7 @@ fOutput->Close();
         _Unfolded1D[iCent].SetTitle(fullTitle1D);
         _Unfolded1D[iCent].Write(fullTitle1D, TObject::kOverwrite);
 
-        for (int iVar = 0; iVar < 7; iVar++) {
+        for (int iVar = 0; iVar < nAngularities + 1; iVar++) {
         _Unfolded2D_X[iVar][iCent].Reset();
 
         _Unfolded2D_X[iVar][iCent] = *((TH2D *) hUnfolded2D[iCent][iVar][iTer].Clone())->ProjectionX(Form("Comparison_%i_%i_%i", iCent, iVar, iTer));
@@ -5091,9 +5249,9 @@ fOutput->Close();
     legend2->Draw("same");
     SavePdfPage(can);
 
-    TLegend *legLam[7][3];
+    TLegend *legLam[nAngularities + 1][3];
 
-    for(int iLamb = 0; iLamb < 7; iLamb++){
+    for(int iLamb = 0; iLamb < nAngularities + 1; iLamb++){
         can->Clear();
         can->SetCanvasSize(1200, 400);
         can->Divide(3, 1);
@@ -5157,7 +5315,7 @@ fOutput->Close();
 TH1::AddDirectory(oldAddDir);
 
 fMach->cd();
-for(int iLamb = 0; iLamb < 7; iLamb++){
+for(int iLamb = 0; iLamb < nAngularities + 1; iLamb++){
     for (int iCent = 0; iCent < 3; iCent++) {
         for (int iIter = 2; iIter < 5; iIter++) {
 
@@ -5173,6 +5331,41 @@ for(int iLamb = 0; iLamb < 7; iLamb++){
 
         hVarReduced_Y_ang[iLamb][iCent][iIter].SetTitle(fullTitle);
         hVarReduced_Y_ang[iLamb][iCent][iIter].Write(fullTitle, TObject::kOverwrite);
+
+        const TH1D &hSpec = hVarReduced_Y_ang[iLamb][iCent][iIter];
+        const TMatrixD &covY = covVarReducedY[iCent][iLamb][iIter];
+        const int nb = hSpec.GetNbinsX();
+
+        std::vector<double> edges(nb + 1);
+        for (int ib = 1; ib <= nb + 1; ++ib) {
+            edges[ib - 1] = hSpec.GetXaxis()->GetBinLowEdge(ib);
+        }
+
+        TString covName = "CovStat_" + fullTitle;
+        TH2D hCov(covName.Data(), covName.Data(),
+                nb, edges.data(), nb, edges.data());
+        hCov.SetDirectory(0);
+        hCov.GetXaxis()->SetTitle(hSpec.GetXaxis()->GetTitle());
+        hCov.GetYaxis()->SetTitle(hSpec.GetXaxis()->GetTitle());
+
+        // Same normalization as Scale(1/Nevents) + NormalizeFinalSpectra().
+        const double norm =
+            1. / (NumberOfWEvents[iCent] * 1.2 * 2. * BrRatioD0);
+
+        for (int ib = 1; ib <= nb; ++ib) {
+            const double scaleI = norm / hSpec.GetBinWidth(ib);
+
+            for (int jb = 1; jb <= nb; ++jb) {
+                const double scaleJ = norm / hSpec.GetBinWidth(jb);
+
+                hCov.SetBinContent(
+                    ib, jb,
+                    covY(ib - 1, jb - 1) * scaleI * scaleJ
+                );
+            }
+        }
+
+        hCov.Write(covName.Data(), TObject::kOverwrite);
         }
 
 }
@@ -5184,7 +5377,7 @@ for(int iLamb = 0; iLamb < 7; iLamb++){
     for (int iCent = 0; iCent < nCentralityBins; iCent++) {
         for (int jCent = iCent + 1; jCent < nCentralityBins; jCent++) {
             Int_t nthParam = GetCombIndex(iCent, jCent, nCentralityBins);
-            for (int iVar = 0; iVar < 7; iVar++) {
+            for (int iVar = 0; iVar < nAngularities + 1; iVar++) {
                 for (int iter = 2; iter < 5; iter++) {
                                         //set all colours to black
         
@@ -5582,7 +5775,7 @@ void plotResolution(TCanvas *can){
         "p_{T,Jet}^{True} #in (20-30) GeV/c"
     };
 
-    TString varTitle[8] = {
+    TString varTitle[nAngularities + 2] = {
         "p_{T,Jet}",
         "z",
         "#lambda_{1}^{1}",
@@ -5591,10 +5784,12 @@ void plotResolution(TCanvas *can){
         "#lambda_{3}^{1}",
         "#lambda_{0.5}^{1}",
         "p_{T}^{D}",
+        "N_{const}",
+        "#lambda_{0}^{1}"
     };
 
     // loop over all variables jet p_T, z, lambda_..., momDispersion
-    for (int iVar = 0; iVar < 8; iVar++) {
+    for (int iVar = 0; iVar < nAngularities + 2; iVar++) {
 
         // ---- Text objects (create once per iVar) ----
         TLatex *tex = new TLatex();
@@ -5738,6 +5933,106 @@ inline double Center(double low, double up)
 {
     return 0.5*(low + up);
 }
+
+
+
+enum CacheEntryKind {
+    kCacheMatched,
+    kCacheMiss,
+    kCacheFake
+};
+
+// Fill one aggregated cache bin while preserving its sum of squared weights.
+void FillResponseFromCache(
+    RooUnfoldResponse &response,
+    CacheEntryKind kind,
+    Double_t xr, Double_t yr,
+    Double_t xt, Double_t yt,
+    Double_t sumW, Double_t sumW2)
+{
+    const Int_t dim = response.GetDimensionMeasured();
+
+    if ((dim != 1 && dim != 2) ||
+        response.GetDimensionTruth() != dim) {
+        throw std::runtime_error(
+            "FillResponseFromCache supports matching 1D or 2D dimensions");
+    }
+
+    // At most three histograms are modified by one response Fill.
+    TH1 *hist[3];
+    Int_t bin[3];
+    Double_t previousVariance[3];
+    Int_t count = 0;
+
+    if (kind == kCacheMatched || kind == kCacheFake) {
+        hist[count] = response.Hmeasured();
+        bin[count] = hist[count]->FindBin(xr, yr);
+        ++count;
+    }
+
+    if (kind == kCacheMatched || kind == kCacheMiss) {
+        hist[count] = response.Htruth();
+        bin[count] = hist[count]->FindBin(xt, yt);
+        ++count;
+    }
+
+    if (kind == kCacheMatched) {
+        TH2 *matrix = response.Hresponse();
+        hist[count] = matrix;
+
+        if (dim == 1) {
+            bin[count] = matrix->FindBin(xr, xt);
+        } else {
+            const Int_t recoBin = RooUnfoldResponse::FindBin(
+                response.Hmeasured(), xr, yr);
+
+            const Int_t trueBin = RooUnfoldResponse::FindBin(
+                response.Htruth(), xt, yt);
+
+            bin[count] = matrix->GetBin(recoBin + 1, trueBin + 1);
+        }
+        ++count;
+    } else if (kind == kCacheFake) {
+        hist[count] = response.Hfakes();
+        bin[count] = hist[count]->FindBin(xr, yr);
+        ++count;
+    }
+
+    // Save the variances before ROOT adds sumW * sumW.
+    for (Int_t i = 0; i < count; ++i) {
+        if (hist[i]->GetSumw2N() == 0)
+            hist[i]->Sumw2();
+
+        const Double_t error = hist[i]->GetBinError(bin[i]);
+        previousVariance[i] = error * error;
+    }
+
+    // Keep the normal RooUnfold filling and internal cache invalidation.
+    if (kind == kCacheMatched) {
+        if (dim == 1)
+            response.Fill(xr, xt, sumW);
+        else
+            response.Fill(xr, yr, xt, yt, sumW);
+    } else if (kind == kCacheMiss) {
+        if (dim == 1)
+            response.Miss(xt, sumW);
+        else
+            response.Miss(xt, yt, sumW);
+    } else {
+        if (dim == 1)
+            response.Fake(xr, sumW);
+        else
+            response.Fake(xr, yr, sumW);
+    }
+
+    // Replace the aggregated-weight contribution with the actual sum(w^2).
+    for (Int_t i = 0; i < count; ++i) {
+        hist[i]->SetBinError(
+            bin[i],
+            std::sqrt(previousVariance[i] + sumW2));
+    }
+}
+
 void BuildResponse1DFromCache(int iCent, TH2D *hMatchPt, TH1D *hMissPt, TH1D *hFakePt)
 {
     if (!hMatchPt || !hMissPt || !hFakePt) {
@@ -5758,8 +6053,10 @@ void BuildResponse1DFromCache(int iCent, TH2D *hMatchPt, TH1D *hMissPt, TH1D *hF
         const double recoPt = Center(recoLow, recoUp);
 
         for (int iy = 1; iy <= hMatchPt->GetNbinsY(); ++iy) {
-            const double w = hMatchPt->GetBinContent(ix, iy);
-            if (w == 0.0) continue;
+            const Double_t w = hMatchPt->GetBinContent(ix, iy);
+            const Double_t error = hMatchPt->GetBinError(ix, iy);
+            const Double_t w2 = error * error;
+            if (w == 0.0 && w2 == 0.0) continue;
 
             const double trueLow = hMatchPt->GetYaxis()->GetBinLowEdge(iy);
             const double trueUp  = hMatchPt->GetYaxis()->GetBinUpEdge(iy);
@@ -5767,38 +6064,54 @@ void BuildResponse1DFromCache(int iCent, TH2D *hMatchPt, TH1D *hMissPt, TH1D *hF
             const double truePt = Center(trueLow, trueUp);
 
             if (recoIn && trueIn) {
-                rurResponse[iCent].Fill(recoPt, truePt, w);
+                FillResponseFromCache(
+                    rurResponse[iCent], kCacheMatched,
+                    recoPt, 0., truePt, 0., w, w2);
+
             } else if (!recoIn && trueIn && MissingJets) {
-                rurResponse[iCent].Miss(truePt, w);
+                FillResponseFromCache(
+                    rurResponse[iCent], kCacheMiss,
+                    0., 0., truePt, 0., w, w2);
+
             } else if (recoIn && !trueIn && FakeJets) {
-                rurResponse[iCent].Fake(recoPt, w);
+                FillResponseFromCache(
+                    rurResponse[iCent], kCacheFake,
+                    recoPt, 0., 0., 0., w, w2);
             }
         }
     }
 
     // ---------- pure misses (true exists, reco not found / not in eta / ...) ----------
     for (int iy = 1; iy <= hMissPt->GetNbinsX(); ++iy) {
-        const double w = hMissPt->GetBinContent(iy);
-        if (w == 0.0) continue;
+        const Double_t w = hMissPt->GetBinContent(iy);
+        const Double_t error = hMissPt->GetBinError(iy);
+        const Double_t w2 = error * error;
+        if (w == 0.0 && w2 == 0.0) continue;
 
-        const double trueLow = hMissPt->GetXaxis()->GetBinLowEdge(iy);
-        const double trueUp  = hMissPt->GetXaxis()->GetBinUpEdge(iy);
+        const Double_t trueLow = hMissPt->GetXaxis()->GetBinLowEdge(iy);
+        const Double_t trueUp = hMissPt->GetXaxis()->GetBinUpEdge(iy);
 
         if (Inside(trueLow, trueUp, trueMin, trueMax) && MissingJets) {
-            rurResponse[iCent].Miss(Center(trueLow, trueUp), w);
+            FillResponseFromCache(
+                rurResponse[iCent], kCacheMiss,
+                0., 0., Center(trueLow, trueUp), 0., w, w2);
         }
     }
 
     // ---------- pure fakes (reco exists, true not found / not in eta / ...) ----------
     for (int ix = 1; ix <= hFakePt->GetNbinsX(); ++ix) {
-        const double w = hFakePt->GetBinContent(ix);
-        if (w == 0.0) continue;
+        const Double_t w = hFakePt->GetBinContent(ix);
+        const Double_t error = hFakePt->GetBinError(ix);
+        const Double_t w2 = error * error;
+        if (w == 0.0 && w2 == 0.0) continue;
 
-        const double recoLow = hFakePt->GetXaxis()->GetBinLowEdge(ix);
-        const double recoUp  = hFakePt->GetXaxis()->GetBinUpEdge(ix);
+        const Double_t recoLow = hFakePt->GetXaxis()->GetBinLowEdge(ix);
+        const Double_t recoUp = hFakePt->GetXaxis()->GetBinUpEdge(ix);
 
         if (Inside(recoLow, recoUp, recoMin, recoMax) && FakeJets) {
-            rurResponse[iCent].Fake(Center(recoLow, recoUp), w);
+            FillResponseFromCache(
+                rurResponse[iCent], kCacheFake,
+                Center(recoLow, recoUp), 0., 0., 0., w, w2);
         }
     }
 }
@@ -5829,8 +6142,10 @@ void BuildResponse2DZFromCache(int iCent, THnSparseD *hMatchPtZ, TH2D *hMissPtZ,
 
     // ---------- matched cache -> Fill / Miss / Fake ----------
     for (Long64_t i = 0; i < n; ++i) {
-        const double w = hMatchPtZ->GetBinContent(i, coord);
-        if (w == 0.0) continue;
+        const Double_t w = hMatchPtZ->GetBinContent(i, coord);
+        const Double_t error = hMatchPtZ->GetBinError(i);
+        const Double_t w2 = error * error;
+        if (w == 0.0 && w2 == 0.0) continue;
 
         const double rPtLow = axRPT->GetBinLowEdge(coord[0]);
         const double rPtUp  = axRPT->GetBinUpEdge (coord[0]);
@@ -5856,11 +6171,19 @@ void BuildResponse2DZFromCache(int iCent, THnSparseD *hMatchPtZ, TH2D *hMissPtZ,
         const double tZ  = Center(tZLow,  tZUp);
 
         if (recoIn && trueIn) {
-            rurResponse2D[iCent][0].Fill(rPt, rZ, tPt, tZ, w);
+            FillResponseFromCache(
+                rurResponse2D[iCent][0], kCacheMatched,
+                rPt, rZ, tPt, tZ, w, w2);
+
         } else if (!recoIn && trueIn && MissingJets) {
-            rurResponse2D[iCent][0].Miss(tPt, tZ, w);
+            FillResponseFromCache(
+                rurResponse2D[iCent][0], kCacheMiss,
+                0., 0., tPt, tZ, w, w2);
+
         } else if (recoIn && !trueIn && FakeJets) {
-            rurResponse2D[iCent][0].Fake(rPt, rZ, w);
+            FillResponseFromCache(
+                rurResponse2D[iCent][0], kCacheFake,
+                rPt, rZ, 0., 0., w, w2);
         }
     }
 
@@ -5872,14 +6195,16 @@ void BuildResponse2DZFromCache(int iCent, THnSparseD *hMatchPtZ, TH2D *hMissPtZ,
         const double tPt = Center(tPtLow, tPtUp);
 
         for (int iy = 1; iy <= hMissPtZ->GetNbinsY(); ++iy) {
-            const double w = hMissPtZ->GetBinContent(ix, iy);
-            if (w == 0.0) continue;
+            const Double_t w = hMissPtZ->GetBinContent(ix, iy);
+            const Double_t error = hMissPtZ->GetBinError(ix, iy);
+            const Double_t w2 = error * error;
+            if (w == 0.0 && w2 == 0.0) continue;
 
             const double tZLow = hMissPtZ->GetYaxis()->GetBinLowEdge(iy);
             const double tZUp  = hMissPtZ->GetYaxis()->GetBinUpEdge (iy);
 
             if (tPtIn && Inside(tZLow, tZUp, tZMin, tZMax) && MissingJets) {
-                rurResponse2D[iCent][0].Miss(tPt, Center(tZLow, tZUp), w);
+                FillResponseFromCache(rurResponse2D[iCent][0], kCacheMiss, 0., 0., tPt, Center(tZLow, tZUp), w, w2);
             }
         }
     }
@@ -5893,13 +6218,15 @@ void BuildResponse2DZFromCache(int iCent, THnSparseD *hMatchPtZ, TH2D *hMissPtZ,
 
         for (int iy = 1; iy <= hFakePtZ->GetNbinsY(); ++iy) {
             const double w = hFakePtZ->GetBinContent(ix, iy);
-            if (w == 0.0) continue;
+            const Double_t error = hFakePtZ->GetBinError(ix, iy);
+            const Double_t w2 = error * error;
+            if (w == 0.0 && w2 == 0.0) continue;
 
             const double rZLow = hFakePtZ->GetYaxis()->GetBinLowEdge(iy);
             const double rZUp  = hFakePtZ->GetYaxis()->GetBinUpEdge (iy);
 
             if (rPtIn && Inside(rZLow, rZUp, rZMin, rZMax) && FakeJets) {
-                rurResponse2D[iCent][0].Fake(rPt, Center(rZLow, rZUp), w);
+                FillResponseFromCache(rurResponse2D[iCent][0], kCacheFake, rPt, Center(rZLow, rZUp), 0., 0., w, w2);
             }
         }
     }
@@ -5936,7 +6263,9 @@ void BuildResponse2DAngFromCache(int iCent, int iAng,
     // ---------- matched cache -> Fill / Miss / Fake ----------
     for (Long64_t i = 0; i < n; ++i) {
         const double w = hMatchPtAng->GetBinContent(i, coord);
-        if (w == 0.0) continue;
+        const Double_t error = hMatchPtAng->GetBinError(i);
+        const Double_t w2 = error * error;
+        if (w == 0.0 && w2 == 0.0) continue;
 
         const double rPtLow = axRPT->GetBinLowEdge(coord[0]);
         const double rPtUp  = axRPT->GetBinUpEdge (coord[0]);
@@ -5962,11 +6291,19 @@ void BuildResponse2DAngFromCache(int iCent, int iAng,
         const double tA  = Center(tALow,  tAUp);
 
         if (recoIn && trueIn) {
-            rurResponse2D[iCent][iAng + 1].Fill(rPt, rA, tPt, tA, w);
+            FillResponseFromCache(
+                rurResponse2D[iCent][iAng + 1], kCacheMatched,
+                rPt, rA, tPt, tA, w, w2);
+
         } else if (!recoIn && trueIn && MissingJets) {
-            rurResponse2D[iCent][iAng + 1].Miss(tPt, tA, w);
+            FillResponseFromCache(
+                rurResponse2D[iCent][iAng + 1], kCacheMiss,
+                0., 0., tPt, tA, w, w2);
+
         } else if (recoIn && !trueIn && FakeJets) {
-            rurResponse2D[iCent][iAng + 1].Fake(rPt, rA, w);
+            FillResponseFromCache(
+                rurResponse2D[iCent][iAng + 1], kCacheFake,
+                rPt, rA, 0., 0., w, w2);
         }
     }
 
@@ -5979,13 +6316,17 @@ void BuildResponse2DAngFromCache(int iCent, int iAng,
 
         for (int iy = 1; iy <= hMissPtAng->GetNbinsY(); ++iy) {
             const double w = hMissPtAng->GetBinContent(ix, iy);
-            if (w == 0.0) continue;
+            const Double_t error = hMissPtAng->GetBinError(ix, iy);
+            const Double_t w2 = error * error;
+            if (w == 0.0 && w2 == 0.0) continue;
 
             const double tALow = hMissPtAng->GetYaxis()->GetBinLowEdge(iy);
             const double tAUp  = hMissPtAng->GetYaxis()->GetBinUpEdge (iy);
 
             if (tPtIn && Inside(tALow, tAUp, tAMin, tAMax) && MissingJets) {
-                rurResponse2D[iCent][iAng + 1].Miss(tPt, Center(tALow, tAUp), w);
+                FillResponseFromCache(
+                    rurResponse2D[iCent][iAng + 1], kCacheMiss,
+                    0., 0., tPt, Center(tALow, tAUp), w, w2);
             }
         }
     }
@@ -5999,13 +6340,17 @@ void BuildResponse2DAngFromCache(int iCent, int iAng,
 
         for (int iy = 1; iy <= hFakePtAng->GetNbinsY(); ++iy) {
             const double w = hFakePtAng->GetBinContent(ix, iy);
-            if (w == 0.0) continue;
+            const Double_t error = hFakePtAng->GetBinError(ix, iy);
+            const Double_t w2 = error * error;
+            if (w == 0.0 && w2 == 0.0) continue;
 
             const double rALow = hFakePtAng->GetYaxis()->GetBinLowEdge(iy);
             const double rAUp  = hFakePtAng->GetYaxis()->GetBinUpEdge (iy);
 
             if (rPtIn && Inside(rALow, rAUp, rAMin, rAMax) && FakeJets) {
-                rurResponse2D[iCent][iAng + 1].Fake(rPt, Center(rALow, rAUp), w);
+                FillResponseFromCache(
+                    rurResponse2D[iCent][iAng + 1], kCacheFake,
+                    rPt, Center(rALow, rAUp), 0., 0., w, w2);
             }
         }
     }
@@ -6018,7 +6363,7 @@ void LoadDataCache()
         exit(1);
     }
 
-    CheckAllCacheCompatibility();
+    CheckAllCacheCompatibility(fCache);
 
     for (int iCent = 0; iCent < nCentralityBins; iCent++) {
 
@@ -6133,6 +6478,7 @@ if (useGRefWeight) {
     jetTree->SetBranchStatus("mcJetLambda1_3", 1);
     jetTree->SetBranchStatus("mcJetLambda1_0_5", 1);
     jetTree->SetBranchStatus("mcJetMomDisp", 1);
+    jetTree->SetBranchStatus("mcJetLambda1_0", 1);
 
     // RECO
     jetTree->SetBranchStatus(preFix + "recoJetPt" + (preFix == "ICS_" ? "" : "Corr"), 1); // nebo recoJetPt podle prefixu
@@ -6153,6 +6499,7 @@ if (useGRefWeight) {
     jetTree->SetBranchStatus(preFix + "recoJetLambda1_3", 1);
     jetTree->SetBranchStatus(preFix + "recoJetLambda1_0_5", 1);
     jetTree->SetBranchStatus(preFix + "recoJetMomDisp", 1);
+    jetTree->SetBranchStatus(preFix + "recoJetLambda1_0", 1);
 
     StJetTreeStruct mcJet, recoJet;
     assignTree(jetTree, mcJet, recoJet);
@@ -6185,7 +6532,7 @@ if (useGRefWeight) {
 
 
     //new file for ekuivalent binning
-    TFile *fEkvi = new TFile("Tests/EkviBinning.root", "RECREATE");
+    //TFile *fEkvi = new TFile("Tests/EkviBinning.root", "RECREATE");
     //New tree for ekuivalent binning
     TTree *tEkvi = new TTree("tEkvi", "tEkvi");
     //větev ptReco 
@@ -6200,13 +6547,15 @@ if (useGRefWeight) {
     //větev centBin
     Int_t centBinEkvi;
     tEkvi->Branch("centBinEkvi", &centBinEkvi, "centBinEkvi/I");
-    Double_t lam[6];
+    Double_t lam[nAngularities];
     tEkvi->Branch("lam0", &lam[0], "lam0/D");
     tEkvi->Branch("lam1", &lam[1], "lam1/D");
     tEkvi->Branch("lam2", &lam[2], "lam2/D");
     tEkvi->Branch("lam3", &lam[3], "lam3/D");
     tEkvi->Branch("lam4", &lam[4], "lam4/D");
     tEkvi->Branch("lam5", &lam[5], "lam5/D");
+    tEkvi->Branch("lam6", &lam[iNConst], "lam6/D");
+    tEkvi->Branch("lam7", &lam[iLambda10], "lam7/D");
 
     
     for (Int_t iEntry = 0; iEntry < nEntries; iEntry++) {
@@ -6259,10 +6608,27 @@ if (useGRefWeight) {
 
         double _mcD0Z = mcJet.d0z;
         double _recoD0Z = recoJet.d0z;
-        double _mcLambda[6] =   {mcJet.lambda[0], mcJet.lambda[1], mcJet.lambda[2],
-                                mcJet.lambda[3], mcJet.lambda[4], mcJet.lambda[5]};
-        double _recoLambda[6] = {recoJet.lambda[0], recoJet.lambda[1], recoJet.lambda[2],
-                                recoJet.lambda[3], recoJet.lambda[4], recoJet.lambda[5]};
+        double _mcLambda[nAngularities] = {
+            mcJet.lambda[0],
+            mcJet.lambda[1],
+            mcJet.lambda[2],
+            mcJet.lambda[3],
+            mcJet.lambda[4],
+            mcJet.lambda[5],
+            static_cast<double>(mcJet.numberofconstituents),
+            mcJet.lambda[iLambda10]
+        };
+
+        double _recoLambda[nAngularities] = {
+            recoJet.lambda[0],
+            recoJet.lambda[1],
+            recoJet.lambda[2],
+            recoJet.lambda[3],
+            recoJet.lambda[4],
+            recoJet.lambda[5],
+            static_cast<double>(recoJet.numberofconstituents),
+            recoJet.lambda[iLambda10]
+        };
         double _recoNConst = recoJet.numberofconstituents;                        
         /**************************************************** */
 
@@ -6302,13 +6668,13 @@ if (useGRefWeight) {
         double recoJetZMax = zRecoBinsVec[centBin][zRecoBinsVec[centBin].size() - 1];
         double trueJetZMin = zMcBinsVecCustom[centBin][0];
         double trueJetZMax = zMcBinsVecCustom[centBin][zMcBinsVecCustom[centBin].size() - 1];
-        double recoJetLambdaMin[6];
-        double recoJetLambdaMax[6];
-        double trueJetLambdaMin[6];
-        double trueJetLambdaMax[6];
+        double recoJetLambdaMin[nAngularities];
+        double recoJetLambdaMax[nAngularities];
+        double trueJetLambdaMin[nAngularities];
+        double trueJetLambdaMax[nAngularities];
 
 
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < nAngularities; i++) {
             recoJetLambdaMin[i] = angRecoBinsVec[centBin][i][0];
             recoJetLambdaMax[i] = angRecoBinsVec[centBin][i][angRecoBinsVec[centBin][i].size() - 1];
             trueJetLambdaMin[i] = angMcBinsVecCustom[centBin][i][0];
@@ -6407,24 +6773,24 @@ if (useGRefWeight) {
         }
 
         //Angularity
-        Bool_t isRecoInLambda[6];
-        Bool_t isTrueInLambda[6];
-        Bool_t isMissInLambda[6];
-        Bool_t isFakeInLambda[6];
-        Bool_t isMatchedInLambda[6];
+        Bool_t isRecoInLambda[nAngularities];
+        Bool_t isTrueInLambda[nAngularities];
+        Bool_t isMissInLambda[nAngularities];
+        Bool_t isFakeInLambda[nAngularities];
+        Bool_t isMatchedInLambda[nAngularities];
 
-        Bool_t isMatchedPtLambda[6];
-        Bool_t isTruePtLambda[6];
-        Bool_t isRecoPtLambda[6];
-        Bool_t isMissPtLambda[6];
-        Bool_t isFakePtLambda[6];
+        Bool_t isMatchedPtLambda[nAngularities];
+        Bool_t isTruePtLambda[nAngularities];
+        Bool_t isRecoPtLambda[nAngularities];
+        Bool_t isMissPtLambda[nAngularities];
+        Bool_t isFakePtLambda[nAngularities];
 
-        bool isMatchedPtLambdaCache[6];
+        bool isMatchedPtLambdaCache[nAngularities];
 
-        bool isMissPtLambdaCache[6];
-        bool isFakePtLambdaCache[6];
+        bool isMissPtLambdaCache[nAngularities];
+        bool isFakePtLambdaCache[nAngularities];
 
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < nAngularities; i++) {
             
             isMatchedPtLambdaCache[i] = isMatchedPtCache;
 
@@ -6529,7 +6895,8 @@ if (useGRefWeight) {
         //if (iEntry < (ClosureTest ? (TrainToTestRatio * nEntries) : 1.0 * nEntries)) { //Check later!!!
 
 
-        double pSWeight[8];
+        double pSWeight[nAngularities + 2];
+        for (int i = 0; i < nAngularities + 2; ++i) pSWeight[i] = 1.0;
         
 
         
@@ -6579,14 +6946,14 @@ if (useGRefWeight) {
 
                     hRespZHighRes[0][centBin]->Fill(_recoJetPt, _mcJetPt);
 
-                    ptRecoEkvi = _recoJetPt;
-                    zRecoEkvi = _recoD0Z;
-                    weightEkvi = weight;
-                    centBinEkvi = centBin;
-                    for (int i = 0; i < 6; i++) {
-                        lam[i] = _recoLambda[i];
-                    }
-                    tEkvi->Fill();
+                    //ptRecoEkvi = _recoJetPt;
+                    //zRecoEkvi = _recoD0Z;
+                    //weightEkvi = weight;
+                    //centBinEkvi = centBin;
+                    //for (int i = 0; i < nAngularities; i++) {
+                    //    lam[i] = _recoLambda[i];
+                    //}
+                    //tEkvi->Fill();
 
 
 
@@ -6635,7 +7002,7 @@ if (useGRefWeight) {
 
                     }
 
-                    for (int iAng = 0; iAng < 6; iAng++){
+                    for (int iAng = 0; iAng < nAngularities; iAng++){
 
                         if (isMatchedPtLambda[iAng]) {
 
@@ -6697,7 +7064,7 @@ if (useGRefWeight) {
         }
 
         // ---------- 2D pT-lambda ----------
-        for (int iAng = 0; iAng < 6; iAng++) {
+        for (int iAng = 0; iAng < nAngularities; iAng++) {
 
             if (isMatchedPtLambdaCache[iAng]) {
                 Double_t coord4D[4] = {_recoJetPt, _recoLambda[iAng], _mcJetPt, _mcLambda[iAng]};
@@ -6775,8 +7142,8 @@ if (useGRefWeight) {
 
 
     }
-    tEkvi->Write();
-    fEkvi->Close();
+    //tEkvi->Write();
+    //fEkvi->Close();
 
     if (FillCacheRM)
     {
@@ -6797,7 +7164,7 @@ if (useGRefWeight) {
             if (hCacheFakePtZ[ic])  hCacheFakePtZ[ic]->Write();
 
             // --- pT-lambda ---
-            for (int iAng = 0; iAng < 6; iAng++) {
+            for (int iAng = 0; iAng < nAngularities; iAng++) {
 
                 if (hCacheMatchPtAng[ic][iAng]) hCacheMatchPtAng[ic][iAng]->Write();
                 if (hCacheMissPtAng[ic][iAng])  hCacheMissPtAng[ic][iAng]->Write();
@@ -7263,9 +7630,9 @@ void LoadDataRealParams() {
         ////double _recoJetPt = recoJet.jetpt_nocorr - (recoJet.recoJetRho+0.0) * recoJet.recoJetArea;
         double _mcD0Z = mcJet.d0z;
         double _recoD0Z = recoJet.d0z;
-        double _mcLambda[6] =   {mcJet.lambda[0], mcJet.lambda[1], mcJet.lambda[2],
+        double _mcLambda[nAngularities] =   {mcJet.lambda[0], mcJet.lambda[1], mcJet.lambda[2],
                                 mcJet.lambda[3], mcJet.lambda[4], mcJet.lambda[5]};
-        double _recoLambda[6] = {recoJet.lambda[0], recoJet.lambda[1], recoJet.lambda[2],
+        double _recoLambda[nAngularities] = {recoJet.lambda[0], recoJet.lambda[1], recoJet.lambda[2],
                                 recoJet.lambda[3], recoJet.lambda[4], recoJet.lambda[5]};
         double _recoNConst = recoJet.numberofconstituents;                        
 
@@ -7610,7 +7977,7 @@ void LoadDataRealNeil() {
         if (Unfold2D) {
             // hRealData2D[iCent][0].Fill(mJPtArea, mZArea, weight);
             hRealData2DD0Pt[iCent][d0PtBin]->Fill(mJPtArea, mZArea, weight);
-            for (int ang = 0; ang < 6; ang++) {
+            for (int ang = 0; ang < nAngularities; ang++) {
                 //hRealData2D[iCent][ang+1].Fill(mJPt, measured.lambda_value[ang], weight);
 
             }
@@ -7785,8 +8152,16 @@ void LoadDataReal() {
             double _d0Pt = measured.vd0pt;
             double _z = measured.z_value;
             double _jetPt = measured.pT_value;
-            double _lambda[6] = {measured.lambda_value[0], measured.lambda_value[1], measured.lambda_value[2],
-                                  measured.lambda_value[3], measured.lambda_value[4], measured.lambda_value[5]};
+            double _lambda[nAngularities] = {
+                measured.lambda_value[0],
+                measured.lambda_value[1],
+                measured.lambda_value[2],
+                measured.lambda_value[3],
+                measured.lambda_value[4],
+                measured.lambda_value[5],
+                measured.nJetConst,
+                measured.lambda_value[iLambda10]
+            };
 
             double _nJetConst = measured.nJetConst;
 
@@ -7819,7 +8194,7 @@ void LoadDataReal() {
             if (Unfold2D) {
                 hRealData2D[iCent][0].Fill(_jetPt, _z, _weight);
                 hRealData2DD0Pt[iCent][d0PtBin][0].Fill(_jetPt, _z, _weight);
-                for (int ang = 0; ang < 6; ang++) {
+                for (int ang = 0; ang < nAngularities; ang++) {
                     hRealData2D[iCent][ang+1].Fill(_jetPt, _lambda[ang], _weight);
                     hRealFine[iCent][1 + ang]->Fill(_jetPt, _lambda[ang], _weight);
                     hRealData2DD0Pt[iCent][d0PtBin][1 + ang].Fill(_jetPt, _lambda[ang], _weight);
@@ -8097,7 +8472,7 @@ TString NegativeDiagVariableName(int variable)
     if (variable == 0)
         return "z";
 
-    if (variable >= 1 && variable <= 6)
+    if (variable >= 1 && variable <= nAngularities)
         return AngNames[variable - 1];
 
     return Form("variable %d", variable);
@@ -8334,9 +8709,7 @@ for (int iCent = 0;
     // Seven observables
     // -----------------------------------------------------------------
 
-    for (int variable = 0;
-         variable < 7;
-         ++variable)
+    for (int variable = 0; variable < nAngularities + 1; ++variable)
     {
         TString varName =
             NegativeDiagVariableName(variable);
@@ -8466,7 +8839,7 @@ can->Print(pdfName);
          ++iCent)
     {
         for (int variable = 0;
-             variable < 7;
+             variable < nAngularities + 1;
              ++variable)
         {
             can->Clear();
@@ -9174,10 +9547,10 @@ outputFileMachine = OutputFile;
     can->Clear();
     DrawKinEff2D(KinEff2DpTZ[2], KinEff2DpTZ[0], KinEff2DpTZ[1], KinEff2DpTZCut,KinEff2DpTZZCut, trueJetVarZMin, trueJetVarZMax, recoJetVarZMin,recoJetVarZMax, can);
 
-    double trueJetVarMin[6][3];
-    double trueJetVarMax[6][3];
-    double recoJetVarMin[6][3];
-    double recoJetVarMax[6][3];
+    double trueJetVarMin[nAngularities][3];
+    double trueJetVarMax[nAngularities][3];
+    double recoJetVarMin[nAngularities][3];
+    double recoJetVarMax[nAngularities][3];
     for (int iCent = 0; iCent < nCentralityBins; iCent++) {
         for (int iAng = 0; iAng < nAngularities; iAng++) {
             trueJetVarMin[iAng][iCent] = angMcBinsVecCustom[iCent][iAng][0];
