@@ -47,7 +47,7 @@ Int_t GivenIter = 4; //(3 => 3-1 = 2 v poli, převedeno v kodu)
 //const Int_t nRecoBins = 8;
 //const Int_t nMcBins = 6;
 //int NumOfBin[6] = {nRecoBins,nRecoBins,nRecoBins,nRecoBins,nRecoBins,nRecoBins};
-const Int_t DividedMcDataBy = 10;
+const Int_t DividedMcDataBy = 1;
 //bool RewriteWeights = true;
 
 const char *outputFile;
@@ -58,10 +58,10 @@ double maxPtD0Cut = 5; //Change in head function Machine()
 
 TString Method = "ICS"; //ICS vs AREA
 
-bool FillStandardRM = true;
+bool FillStandardRM = false;
 bool FillCacheRM = false; //Be carefoul!!!
 //bool LoadResponseMatrix = false;
-bool UseCachedRM = false;
+bool UseCachedRM = true;
 TString CacheRMFileName = "./Output/CacheRM";
 
 const Int_t nAngularities = 8;
